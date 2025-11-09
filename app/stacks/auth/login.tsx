@@ -124,7 +124,7 @@ const LoginScreen = () => {
                     {loading ? (
                         <ActivityIndicator color="#fff" />
                     ) : (
-                        <Text style={styles.loginButtonText}>Sign In →</Text>
+                        <Text style={styles.loginButtonText}>Entrar →</Text>
                     )}
                 </TouchableOpacity>
 
