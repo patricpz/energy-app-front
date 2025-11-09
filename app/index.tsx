@@ -1,15 +1,22 @@
-import { Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { useEffect } from "react";
+import Login from "./stacks/auth/login";
 
 export default function Index() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text>Edit app/index.tsx to edit this screen.</Text>
-    </View>
-  );
+  const router = useRouter();
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const isLoggedIn = false;
+
+      if (isLoggedIn) {
+        return router.navigate("/tabs/home");
+      } else {
+        return <Login />;
+      }
+    }, 1000);
+    return () => clearTimeout(timeout);
+  }, [router]);
+
+  return <Login />;
 }
