@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
 interface EnergyMeterProps {
-    pulseActive?: boolean; // flag para o pulso vermelho piscar
+    pulseActive?: boolean;
 }
 
 const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
@@ -75,12 +75,15 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: "#0D1117",
+        backgroundColor: "#0F172A",
         borderRadius: 8,
-        padding: 16,
+        padding: 10,
         alignItems: "center",
         width: "90%",
         alignSelf: "center",
+        borderColor: "#FFF",
+        width: "100%",
+        borderWidth: 2
     },
     title: {
         color: "#FFFFFF",
@@ -89,19 +92,25 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     display: {
-        backgroundColor: "#1A1F27",
+        backgroundColor: "#1E293B",
         borderRadius: 8,
         paddingVertical: 12,
-        paddingHorizontal: 20,
+        paddingHorizontal: 10,
         marginBottom: 12,
-        minWidth: 240,
+        height: 88,
+        width: 311,
+        alignItems: "center",
+        justifyContent: "center",
+        alignSelf: "center",
     },
     displayText: {
         color: "#00FF87",
         fontFamily: "Digital",
-        fontSize: 32,
+        fontSize: 65,
+        height: 50,
         letterSpacing: 3,
         textAlign: "center",
+        textAlignVertical: "center",
     },
     footer: {
         flexDirection: "row",

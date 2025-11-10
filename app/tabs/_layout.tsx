@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { HouseIcon, MagnifyingGlassIcon, NotebookIcon, UserIcon } from "phosphor-react-native";
+import { ChartLineIcon, HouseIcon, NotebookIcon, UserIcon } from "phosphor-react-native";
 
 export default function TabsLayout() {
   return (
@@ -23,10 +23,11 @@ export default function TabsLayout() {
           )
         }}
       />
-      <Tabs.Screen name="search"
+      <Tabs.Screen name="analisty"
         options={{
           tabBarIcon: ({ color, size }) => (
-            <MagnifyingGlassIcon color={color} size={size} />
+            <ChartLineIcon size={size} color= {color} />
+
           )
         }}
       />
