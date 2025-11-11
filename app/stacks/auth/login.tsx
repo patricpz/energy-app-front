@@ -12,8 +12,10 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useTheme } from "../context/ThemeContext";
 
 const LoginScreen = () => {
+    const { theme } = useTheme();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -42,17 +44,17 @@ const LoginScreen = () => {
 
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
                 {/* Logo e título */}
                 <View style={styles.header}>
-                    <View style={styles.logoContainer}>
-                        <Ionicons name="battery-half" size={28} color="#1ED760" />
+                    <View style={[styles.logoContainer, { backgroundColor: theme.colors.primaryBackground }]}>
+                        <Ionicons name="battery-half" size={28} color={theme.colors.primary} />
                     </View>
-                    <Text style={styles.appName}>EnergyApp</Text>
-                    <Text style={styles.description}>
+                    <Text style={[styles.appName, { color: theme.colors.text }]}>EnergyApp</Text>
+                    <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
                         Monitore e otimize seu consumo de energia.
                     </Text>
                 </View>
@@ -61,11 +63,11 @@ const LoginScreen = () => {
 
                 {/* Email */}
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Email</Text>
+                    <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Email</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: theme.colors.surface, color: theme.colors.text }]}
                         placeholder="Seu Email"
-                        placeholderTextColor="#7A7A7A"
+                        placeholderTextColor={theme.colors.textTertiary}
                         value={email}
                         onChangeText={setEmail}
                         keyboardType="email-address"
@@ -75,12 +77,12 @@ const LoginScreen = () => {
 
                 {/* Senha */}
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Senha</Text>
+                    <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Senha</Text>
                     <View style={styles.passwordContainer}>
                         <TextInput
-                            style={[styles.input, { flex: 1 }]}
+                            style={[styles.input, { flex: 1, backgroundColor: theme.colors.surface, color: theme.colors.text }]}
                             placeholder="Sua Senha"
-                            placeholderTextColor="#7A7A7A"
+                            placeholderTextColor={theme.colors.textTertiary}
                             value={password}
                             onChangeText={setPassword}
                             secureTextEntry={!showPassword}
@@ -92,7 +94,7 @@ const LoginScreen = () => {
                             <Ionicons
                                 name={showPassword ? "eye-off" : "eye"}
                                 size={20}
-                                color="#7A7A7A"
+                                color={theme.colors.textTertiary}
                             />
                         </TouchableOpacity>
                     </View>
@@ -104,45 +106,45 @@ const LoginScreen = () => {
                         <Switch
                             value={remember}
                             onValueChange={setRemember}
-                            trackColor={{ false: "#555", true: "#1ED760" }}
-                            thumbColor={remember ? "#fff" : "#ccc"}
+                            trackColor={{ false: theme.colors.switchInactive, true: theme.colors.switchActive }}
+                            thumbColor={remember ? theme.colors.buttonText : "#ccc"}
                         />
-                        <Text style={styles.rememberText}>Lembre de mim</Text>
+                        <Text style={[styles.rememberText, { color: theme.colors.textSecondary }]}>Lembre de mim</Text>
                     </View>
 
                     <TouchableOpacity>
-                        <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
+                        <Text style={[styles.forgotText, { color: theme.colors.primary }]}>Esqueceu sua senha?</Text>
                     </TouchableOpacity>
                 </View>
 
                 {/* Botão de login */}
                 <TouchableOpacity
-                    style={[styles.loginButton, loading && styles.disabledButton]}
+                    style={[styles.loginButton, { backgroundColor: theme.colors.primary }, loading && styles.disabledButton]}
                     onPress={handleLogin}
                     disabled={loading}
                 >
                     {loading ? (
-                        <ActivityIndicator color="#fff" />
+                        <ActivityIndicator color={theme.colors.buttonText} />
                     ) : (
-                        <Text style={styles.loginButtonText}>Entrar →</Text>
+                        <Text style={[styles.loginButtonText, { color: theme.colors.buttonText }]}>Entrar →</Text>
                     )}
                 </TouchableOpacity>
 
                 {/* Criar conta */}
                 <View style={styles.signupRow}>
-                    <Text style={styles.signupText}>Não tem uma conta? </Text>
+                    <Text style={[styles.signupText, { color: theme.colors.textSecondary }]}>Não tem uma conta? </Text>
                     <TouchableOpacity>
-                        <Text style={styles.signupLink}>Criar uma conta</Text>
+                        <Text style={[styles.signupLink, { color: theme.colors.primary }]}>Criar uma conta</Text>
                     </TouchableOpacity>
                 </View>
 
                 {/* Rodapé */}
-                <Text style={styles.footerText}>
+                <Text style={[styles.footerText, { color: theme.colors.textTertiary }]}>
                     Ao iniciar sessão, você concorda com os nossos termos.{"\n"}
-                    <Text style={styles.linkText}>Termos de Serviço</Text> e{" "}
-                    <Text style={styles.linkText}>Política de Privacidade</Text>
+                    <Text style={[styles.linkText, { color: theme.colors.primary }]}>Termos de Serviço</Text> e{" "}
+                    <Text style={[styles.linkText, { color: theme.colors.primary }]}>Política de Privacidade</Text>
                 </Text>
-                <Text style={styles.dataInfo}>
+                <Text style={[styles.dataInfo, { color: theme.colors.textTertiary }]}>
                     Seus dados de energia estão criptografados e seguros.
                 </Text>
             </View>
@@ -153,13 +155,11 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#0D1117",
         justifyContent: "center",
         alignItems: "center",
         paddingHorizontal: 20,
     },
     card: {
-        backgroundColor: "#161B22",
         borderRadius: 12,
         padding: 24,
         width: "100%",
@@ -175,7 +175,6 @@ const styles = StyleSheet.create({
         marginBottom: 28,
     },
     logoContainer: {
-        backgroundColor: "#1ED76033",
         padding: 12,
         borderRadius: 10,
         marginBottom: 8,
@@ -183,10 +182,8 @@ const styles = StyleSheet.create({
     appName: {
         fontSize: 22,
         fontWeight: "bold",
-        color: "#FFFFFF",
     },
     description: {
-        color: "#A3A3A3",
         fontSize: 13,
         textAlign: "center",
         marginTop: 6,
@@ -195,13 +192,10 @@ const styles = StyleSheet.create({
         marginBottom: 18,
     },
     label: {
-        color: "#C3C3C3",
         fontSize: 14,
         marginBottom: 6,
     },
     input: {
-        backgroundColor: "#1F242B",
-        color: "#FFFFFF",
         borderRadius: 8,
         paddingVertical: 14,
         paddingHorizontal: 16,
@@ -227,16 +221,13 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     rememberText: {
-        color: "#C3C3C3",
         fontSize: 13,
     },
     forgotText: {
-        color: "#1ED760",
         fontSize: 13,
         fontWeight: "500",
     },
     loginButton: {
-        backgroundColor: "#1ED760",
         paddingVertical: 14,
         borderRadius: 10,
         alignItems: "center",
@@ -245,7 +236,6 @@ const styles = StyleSheet.create({
         opacity: 0.7,
     },
     loginButtonText: {
-        color: "#000",
         fontSize: 16,
         fontWeight: "bold",
     },
@@ -255,26 +245,22 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     signupText: {
-        color: "#A3A3A3",
         fontSize: 13,
     },
     signupLink: {
-        color: "#1ED760",
         fontWeight: "600",
         fontSize: 13,
     },
     footerText: {
-        color: "#707070",
         fontSize: 11,
         textAlign: "center",
         marginTop: 28,
         lineHeight: 16,
     },
     linkText: {
-        color: "#1ED760",
+        // Cor será aplicada dinamicamente
     },
     dataInfo: {
-        color: "#555",
         fontSize: 11,
         textAlign: "center",
         marginTop: 6,

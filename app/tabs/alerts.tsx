@@ -1,20 +1,20 @@
+import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import GraphicMeter from "../components/GraphicMeter";
-import Header from "../components/Header";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../context/ThemeContext";
 
-export default function Analisty() {
+export default function Alerts() {
     const { theme } = useTheme();
-
+    
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <Header />
-
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={["top"]}>
             <View style={styles.content}>
-                <Text style={[styles.title, { color: theme.colors.text }]}>Analisty Screen</Text>
-                <GraphicMeter />
+                <Text style={[styles.title, { color: theme.colors.text }]}>Alerts</Text>
+                <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+                    Notificações e alertas do sistema
+                </Text>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -36,3 +36,4 @@ const styles = StyleSheet.create({
         fontSize: 15,
     },
 });
+

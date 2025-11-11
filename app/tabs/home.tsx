@@ -3,15 +3,18 @@ import { StyleSheet, Text, View } from "react-native";
 import EnergyMeter from "../components/EnergyMeter";
 import GraphicMeter from "../components/GraphicMeter";
 import Header from "../components/Header";
+import { useTheme } from "../context/ThemeContext";
 
 export default function Home() {
+    const { theme } = useTheme();
+    
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Header />
 
             <View style={styles.content}>
-                <Text style={styles.title}>Home Screen</Text>
-                <Text style={styles.subtitle}>
+                <Text style={[styles.title, { color: theme.colors.text }]}>Home Screen</Text>
+                <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
                     Bem-vindo ao painel do EnergyPro ⚡
                 </Text>
                 <View style={{ alignItems: "center", marginTop: 20 }}>
@@ -28,7 +31,6 @@ export default function Home() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#0F172A",
     },
     content: {
         flex: 1,
@@ -37,13 +39,11 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 24,
-        color: "#FFFFFF",
         fontWeight: "600",
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 15,
-        color: "#8A99A6",
     },
     sectionGraphic: {
         marginTop: 20,

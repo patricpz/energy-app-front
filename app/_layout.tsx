@@ -1,12 +1,15 @@
 import { Stack } from "expo-router";
+import { ThemeProvider } from "./context/ThemeContext";
 
 export default function RootLayout() {
     return (
-        <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-            <Stack.Screen name="auth/singUp" options={{ headerShown: false }} />
-            <Stack.Screen name="tabs/_layout" options={{ headerShown: false }} />
-        </Stack>
+        <ThemeProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+                <Stack.Screen name="auth/singUp" options={{ headerShown: false }} />
+                <Stack.Screen name="tabs/_layout" options={{ headerShown: false }} />
+            </Stack>
+        </ThemeProvider>
     );
 }
