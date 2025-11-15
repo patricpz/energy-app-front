@@ -63,10 +63,10 @@ export const darkTheme = {
         textTertiary: "#64748B",
         
         // Primary (Azul no lugar do verde)
-        primary: "#3B82F6", // Azul mais claro para modo escuro
-        primaryLight: "#60A5FA",
-        primaryDark: "#2563EB",
-        primaryBackground: "#1E3A8A",
+        primary: "#00FF87", // Azul mais claro para modo escuro
+        primaryLight: "#00FF87",
+        primaryDark: "#00FF87",
+        primaryBackground: "#00FF87",
         
         // Borders and dividers
         border: "#334155",
@@ -79,22 +79,23 @@ export const darkTheme = {
         
         // Tab bar
         tabBarBackground: "#111827",
-        tabBarActive: "#3B82F6",
+        tabBarActive: "#00FF87",
         tabBarInactive: "#757575",
         
         // Progress bar
         progressBackground: "#334155",
-        progressFill: "#3B82F6",
+        progressFill: "#00FF87",
         
         // Switch
-        switchActive: "#3B82F6",
+        switchActive: "#00FF87",
         switchInactive: "#374151",
         
         // Button
-        buttonPrimary: "#1E40AF",
+        buttonPrimary: "#00FF87",
         buttonText: "#FFFFFF",
     },
 };
 
 export type Theme = typeof lightTheme;
+
 

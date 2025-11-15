@@ -4,7 +4,7 @@ import { useTheme } from "../context/ThemeContext";
 
 export default function TabsLayout() {
   const { theme } = useTheme();
-  
+
   return (
     <Tabs
       screenOptions={{
@@ -13,8 +13,8 @@ export default function TabsLayout() {
           backgroundColor: theme.colors.tabBarBackground,
           borderTopColor: theme.colors.border,
           paddingTop: 10,
-          paddingBottom: 8,
-          height: 70,
+          paddingBottom: 10,
+          height: 120,
         },
         tabBarActiveTintColor: theme.colors.tabBarActive,
         tabBarInactiveTintColor: theme.colors.tabBarInactive,
@@ -25,6 +25,8 @@ export default function TabsLayout() {
         },
       }}
     >
+
+
       <Tabs.Screen name="home"
         options={{
           tabBarLabel: "Home",
