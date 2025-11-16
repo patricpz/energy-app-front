@@ -1,13 +1,27 @@
 import React, { useEffect, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
+import { useTheme } from "../context/ThemeContext";
 
 interface EnergyMeterProps {
     pulseActive?: boolean;
 }
 
 const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
+    const { theme } = useTheme();
     const [value, setValue] = useState(0.0);
     const [blinkAnim] = useState(new Animated.Value(1));
+    
+    const colors = theme.colors;
+    
+    // Cores adaptativas para o display digital
+    const displayTextColor = colors.primary; // Azul no modo claro, verde no modo escuro
+    const displayBgColor = theme.mode === "light" 
+        ? "#E5E7EB" // Cinza claro para modo claro
+        : "#1E293B"; // Cinza escuro para modo escuro (já é colors.surface no dark)
+    
+    // Cores para textos secundários (kWh, +, -)
+    // Preto no modo claro, branco/claro no modo escuro
+    const secondaryTextColor = theme.mode === "light" ? "#000000" : "#FFFFFF";
 
     // Simula o medidor aumentando lentamente
     useEffect(() => {
@@ -40,12 +54,28 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
     }, [pulseActive]);
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>MEDIDOR DE ENERGIA MONOFÁSICO</Text>
+        <View style={[
+            styles.container,
+            {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+            }
+        ]}>
+            <Text style={[styles.title, { color: colors.text }]}>
+                MEDIDOR DE ENERGIA MONOFÁSICO
+            </Text>
 
             {/* Display */}
-            <View style={styles.display}>
-                <Text style={styles.displayText}>
+            <View style={[
+                styles.display,
+                {
+                    backgroundColor: displayBgColor,
+                }
+            ]}>
+                <Text style={[
+                    styles.displayText,
+                    { color: displayTextColor }
+                ]}>
                     {value.toFixed(1).padStart(8, "0")}
                 </Text>
             </View>
@@ -53,19 +83,25 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
             {/* Rodapé */}
             <View style={styles.footer}>
                 <View style={styles.pulseContainer}>
-                    <Text style={styles.pulseLabel}>Pulso</Text>
+                    <Text style={[styles.pulseLabel, { color: colors.text }]}>Pulso</Text>
                     <Animated.View
                         style={[
                             styles.pulseDot,
-                            pulseActive && { backgroundColor: "red", opacity: blinkAnim },
+                            {
+                                backgroundColor: pulseActive ? colors.error : colors.textTertiary,
+                                opacity: pulseActive ? blinkAnim : 1,
+                            }
                         ]}
                     />
                 </View>
 
                 <View style={styles.unitContainer}>
-                    <Text style={styles.unit}>kWh</Text>
-                    <View style={styles.symbolBox}>
-                        <Text style={styles.symbolText}>+ −</Text>
+                    <Text style={[styles.unit, { color: secondaryTextColor }]}>kWh</Text>
+                    <View style={[
+                        styles.symbolBox,
+                        { borderColor: colors.border }
+                    ]}>
+                        <Text style={[styles.symbolText, { color: secondaryTextColor }]}>+ −</Text>
                     </View>
                 </View>
             </View>
@@ -75,24 +111,19 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: "#0F172A",
         borderRadius: 8,
         padding: 10,
         alignItems: "center",
-        width: "90%",
-        alignSelf: "center",
-        borderColor: "#FFF",
         width: "100%",
-        borderWidth: 2
+        alignSelf: "center",
+        borderWidth: 2,
     },
     title: {
-        color: "#FFFFFF",
         fontSize: 13,
         fontWeight: "700",
         marginBottom: 8,
     },
     display: {
-        backgroundColor: "#1E293B",
         borderRadius: 8,
         paddingVertical: 12,
         paddingHorizontal: 10,
@@ -104,7 +135,6 @@ const styles = StyleSheet.create({
         alignSelf: "center",
     },
     displayText: {
-        color: "#00FF87",
         fontFamily: "Digital",
         fontSize: 65,
         height: 50,
@@ -124,7 +154,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     pulseLabel: {
-        color: "#FFFFFF",
         fontSize: 13,
         marginRight: 6,
     },
@@ -132,26 +161,22 @@ const styles = StyleSheet.create({
         width: 12,
         height: 12,
         borderRadius: 6,
-        backgroundColor: "#000",
     },
     unitContainer: {
         alignItems: "center",
     },
     unit: {
-        color: "#FFFFFF",
         fontSize: 13,
         fontWeight: "600",
     },
     symbolBox: {
         borderWidth: 1,
-        borderColor: "#FFFFFF",
         paddingHorizontal: 6,
         paddingVertical: 2,
         borderRadius: 3,
         marginTop: 3,
     },
     symbolText: {
-        color: "#FFFFFF",
         fontSize: 10,
     },
 });

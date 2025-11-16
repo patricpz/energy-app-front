@@ -1,20 +1,28 @@
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import GraphicMeter from "../components/GraphicMeter";
 import Header from "../components/Header";
 import { useTheme } from "../context/ThemeContext";
+import SafeScreen from "../SafeScreen";
 
 export default function Analisty() {
     const { theme } = useTheme();
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <Header />
+        <SafeScreen>
+            <ScrollView>
 
-            <View style={styles.content}>
-                <Text style={[styles.title, { color: theme.colors.text }]}>Analisty Screen</Text>
-                <GraphicMeter />
-            </View>
-        </View>
+                <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+                    <Header />
+
+                    <View style={styles.content}>
+                        <Text style={[styles.title, { color: theme.colors.text }]}>Analisty Screen</Text>
+                        <GraphicMeter />
+
+                    </View>
+                </View>
+            </ScrollView>
+        </SafeScreen>
+
     );
 }
 

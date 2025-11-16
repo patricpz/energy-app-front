@@ -25,5 +25,6 @@ export default function SafeScreen({ children, style }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
 });

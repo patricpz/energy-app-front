@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import EnergyMeter from "../components/EnergyMeter";
 import GraphicMeter from "../components/GraphicMeter";
 import Header from "../components/Header";
@@ -11,23 +11,24 @@ export default function Home() {
 
     return (
         <SafeScreen>
+            <ScrollView>
+                <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+                    <Header />
 
-            <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-                <Header />
-
-                <View style={styles.content}>
-                    <Text style={[styles.title, { color: theme.colors.text }]}>Home Screen</Text>
-                    <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-                        Bem-vindo ao painel do EnergyPro ⚡
-                    </Text>
-                    <View style={{ alignItems: "center", marginTop: 20 }}>
-                        <EnergyMeter pulseActive />
-                    </View>
-                    <View style={styles.sectionGraphic}>
-                        <GraphicMeter />
+                    <View style={styles.content}>
+                        <Text style={[styles.title, { color: theme.colors.text }]}>Home Screen</Text>
+                        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+                            Bem-vindo ao painel do EnergyPro ⚡
+                        </Text>
+                        <View style={{ alignItems: "center", marginTop: 20 }}>
+                            <EnergyMeter pulseActive />
+                        </View>
+                        <View style={styles.sectionGraphic}>
+                            <GraphicMeter />
+                        </View>
                     </View>
                 </View>
-            </View>
+            </ScrollView>
         </SafeScreen>
 
     );
