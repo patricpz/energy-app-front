@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Gear, Moon, PencilSimple, SignOut, Sun } from "phosphor-react-native";
 import React, { useState } from "react";
 import {
@@ -13,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../context/ThemeContext";
 
 export default function Profile() {
+    const router = useRouter();
     const { theme, themeMode, toggleTheme } = useTheme();
     const [allNotifications, setAllNotifications] = useState(true);
     const [emailNotifications, setEmailNotifications] = useState(true);
@@ -44,6 +46,11 @@ export default function Profile() {
         notificationTitle: { color: theme.colors.text },
         notificationDescription: { color: theme.colors.textSecondary },
     };
+
+    const handleSignOut = () => {
+        router.replace("/stacks/auth/login");
+        console.log("User signed out");
+    }
 
     return (
         <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={["top"]}>
@@ -167,9 +174,9 @@ export default function Profile() {
                 </View>
 
                 {/* Sign Out Button */}
-                <TouchableOpacity style={styles.signOutButton}>
+                <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
                     <SignOut size={20} color={theme.colors.error} weight="regular" />
-                    <Text style={[styles.signOutText, { color: theme.colors.error }]}>Sign Out</Text>
+                    <Text style={[styles.signOutText, { color: theme.colors.error }]}>Sair</Text>
                 </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>

@@ -133,7 +133,7 @@ const LoginScreen = () => {
                 {/* Criar conta */}
                 <View style={styles.signupRow}>
                     <Text style={[styles.signupText, { color: theme.colors.textSecondary }]}>Não tem uma conta? </Text>
-                    <TouchableOpacity>
+                    <TouchableOpacity onPress={() => router.push("/stacks/auth/register")}>
                         <Text style={[styles.signupLink, { color: theme.colors.primary }]}>Criar uma conta</Text>
                     </TouchableOpacity>
                 </View>
