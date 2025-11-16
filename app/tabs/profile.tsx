@@ -53,6 +53,7 @@ export default function Profile() {
     }
 
     return (
+        
         <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={["top"]}>
             {/* Header */}
             <View style={[styles.header, dynamicStyles.header]}>

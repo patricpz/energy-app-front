@@ -1,4 +1,5 @@
 import { useTheme } from "@/app/context/ThemeContext";
+import SafeScreen from "@/app/SafeScreen";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -43,6 +44,8 @@ const LoginScreen = () => {
     };
 
     return (
+        <SafeScreen>
+
         <KeyboardAvoidingView
             style={[styles.container, { backgroundColor: theme.colors.background }]}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -149,6 +152,7 @@ const LoginScreen = () => {
                 </Text>
             </View>
         </KeyboardAvoidingView>
+        </SafeScreen>
     );
 };
 

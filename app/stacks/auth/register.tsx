@@ -1,4 +1,5 @@
 import { useTheme } from "@/app/context/ThemeContext";
+import SafeScreen from "@/app/SafeScreen";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -41,246 +42,249 @@ export default function RegisterScreen() {
     const colors = theme.colors;
 
     return (
-        <KeyboardAvoidingView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingVertical: 30 }}
+        <SafeScreen>
+
+            <KeyboardAvoidingView
+                style={[styles.container, { backgroundColor: colors.background }]}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <View style={styles.header}>
-                    {/* Logo */}
-                    <View
-                        style={[
-                            styles.logoBox,
-                            { backgroundColor: colors.primaryBackground },
-                        ]}
-                    >
-                        <Ionicons name="flash-outline" size={32} color={colors.primary} />
-                    </View>
-
-                    <Text style={[styles.title, { color: colors.text }]}>Criar Conta</Text>
-                    <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                        Junte-se à plataforma de análise energética
-                    </Text>
-                </View>
-
-                {/* FORM */}
-                <View style={styles.form}>
-
-                    {/* Nome */}
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>
-                        Nome Completo
-                    </Text>
-                    <TextInput
-                        style={[
-                            styles.input,
-                            { backgroundColor: colors.surface, color: colors.text },
-                        ]}
-                        placeholder="Digite seu nome completo"
-                        placeholderTextColor={colors.textTertiary}
-                        value={name}
-                        onChangeText={setName}
-                    />
-
-                    {/* Email */}
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>
-                        E-mail
-                    </Text>
-                    <TextInput
-                        style={[
-                            styles.input,
-                            { backgroundColor: colors.surface, color: colors.text },
-                        ]}
-                        placeholder="seu@email.com"
-                        placeholderTextColor={colors.textTertiary}
-                        value={email}
-                        onChangeText={setEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                    />
-
-                    {/* Senha */}
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>Senha</Text>
-                    <View style={styles.passwordContainer}>
-                        <TextInput
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingVertical: 30 }}
+                >
+                    <View style={styles.header}>
+                        {/* Logo */}
+                        <View
                             style={[
-                                styles.input,
-                                { flex: 1, backgroundColor: colors.surface, color: colors.text },
+                                styles.logoBox,
+                                { backgroundColor: colors.primaryBackground },
                             ]}
-                            placeholder="Crie uma senha segura"
-                            placeholderTextColor={colors.textTertiary}
-                            secureTextEntry={!showPassword}
-                            value={password}
-                            onChangeText={setPassword}
-                        />
-
-                        <TouchableOpacity
-                            onPress={() => setShowPassword(!showPassword)}
-                            style={styles.eyeBtn}
                         >
-                            <Ionicons
-                                name={showPassword ? "eye-off" : "eye"}
-                                size={20}
-                                color={colors.textTertiary}
-                            />
-                        </TouchableOpacity>
-                    </View>
+                            <Ionicons name="flash-outline" size={32} color={colors.primary} />
+                        </View>
 
-                    <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 4 }}>
-                        Mín. 8 caracteres, maiúscula, número e símbolo
-                    </Text>
-
-                    {/* Confirmar Senha */}
-                    <Text
-                        style={[
-                            styles.label,
-                            { color: colors.textSecondary, marginTop: 16 },
-                        ]}
-                    >
-                        Confirmar Senha
-                    </Text>
-
-                    <View style={styles.passwordContainer}>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                { flex: 1, backgroundColor: colors.surface, color: colors.text },
-                            ]}
-                            placeholder="Digite a senha novamente"
-                            placeholderTextColor={colors.textTertiary}
-                            secureTextEntry={!showPassword2}
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
-                        />
-
-                        <TouchableOpacity
-                            onPress={() => setShowPassword2(!showPassword2)}
-                            style={styles.eyeBtn}
-                        >
-                            <Ionicons
-                                name={showPassword2 ? "eye-off" : "eye"}
-                                size={20}
-                                color={colors.textTertiary}
-                            />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Aceitar termos */}
-                    <View style={styles.termsRow}>
-                        <Switch
-                            value={agreeTerms}
-                            onValueChange={setAgreeTerms}
-                            trackColor={{
-                                false: colors.switchInactive,
-                                true: colors.switchActive,
-                            }}
-                            thumbColor={agreeTerms ? colors.buttonText : "#ccc"}
-                        />
-
-                        <Text
-                            style={{
-                                color: colors.textSecondary,
-                                marginLeft: 8,
-                                fontSize: 13,
-                            }}
-                        >
-                            Eu concordo com os{" "}
-                            <Text style={{ color: colors.primary }}>Termos de Uso</Text> e{" "}
-                            <Text style={{ color: colors.primary }}>
-                                Política de Privacidade
-                            </Text>
+                        <Text style={[styles.title, { color: colors.text }]}>Criar Conta</Text>
+                        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                            Junte-se à plataforma de análise energética
                         </Text>
                     </View>
 
-                    {/* BOTÃO CRIAR CONTA */}
-                    <TouchableOpacity
-                        style={[
-                            styles.createButton,
-                            {
-                                backgroundColor: agreeTerms
-                                    ? colors.buttonPrimary
-                                    : colors.textTertiary + "40",
-                            },
-                        ]}
-                        disabled={!agreeTerms || loading}
-                        onPress={handleRegister}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color={colors.buttonText} />
-                        ) : (
-                            <Text
+                    {/* FORM */}
+                    <View style={styles.form}>
+
+                        {/* Nome */}
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>
+                            Nome Completo
+                        </Text>
+                        <TextInput
+                            style={[
+                                styles.input,
+                                { backgroundColor: colors.surface, color: colors.text },
+                            ]}
+                            placeholder="Digite seu nome completo"
+                            placeholderTextColor={colors.textTertiary}
+                            value={name}
+                            onChangeText={setName}
+                        />
+
+                        {/* Email */}
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>
+                            E-mail
+                        </Text>
+                        <TextInput
+                            style={[
+                                styles.input,
+                                { backgroundColor: colors.surface, color: colors.text },
+                            ]}
+                            placeholder="seu@email.com"
+                            placeholderTextColor={colors.textTertiary}
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                        />
+
+                        {/* Senha */}
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>Senha</Text>
+                        <View style={styles.passwordContainer}>
+                            <TextInput
                                 style={[
-                                    styles.createButtonText,
-                                    { color: colors.buttonText },
+                                    styles.input,
+                                    { flex: 1, backgroundColor: colors.surface, color: colors.text },
+                                ]}
+                                placeholder="Crie uma senha segura"
+                                placeholderTextColor={colors.textTertiary}
+                                secureTextEntry={!showPassword}
+                                value={password}
+                                onChangeText={setPassword}
+                            />
+
+                            <TouchableOpacity
+                                onPress={() => setShowPassword(!showPassword)}
+                                style={styles.eyeBtn}
+                            >
+                                <Ionicons
+                                    name={showPassword ? "eye-off" : "eye"}
+                                    size={20}
+                                    color={colors.textTertiary}
+                                />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 4 }}>
+                            Mín. 8 caracteres, maiúscula, número e símbolo
+                        </Text>
+
+                        {/* Confirmar Senha */}
+                        <Text
+                            style={[
+                                styles.label,
+                                { color: colors.textSecondary, marginTop: 16 },
+                            ]}
+                        >
+                            Confirmar Senha
+                        </Text>
+
+                        <View style={styles.passwordContainer}>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    { flex: 1, backgroundColor: colors.surface, color: colors.text },
+                                ]}
+                                placeholder="Digite a senha novamente"
+                                placeholderTextColor={colors.textTertiary}
+                                secureTextEntry={!showPassword2}
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                            />
+
+                            <TouchableOpacity
+                                onPress={() => setShowPassword2(!showPassword2)}
+                                style={styles.eyeBtn}
+                            >
+                                <Ionicons
+                                    name={showPassword2 ? "eye-off" : "eye"}
+                                    size={20}
+                                    color={colors.textTertiary}
+                                />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Aceitar termos */}
+                        <View style={styles.termsRow}>
+                            <Switch
+                                value={agreeTerms}
+                                onValueChange={setAgreeTerms}
+                                trackColor={{
+                                    false: colors.switchInactive,
+                                    true: colors.switchActive,
+                                }}
+                                thumbColor={agreeTerms ? colors.buttonText : "#ccc"}
+                            />
+
+                            <Text
+                                style={{
+                                    color: colors.textSecondary,
+                                    marginLeft: 8,
+                                    fontSize: 13,
+                                }}
+                            >
+                                Eu concordo com os{" "}
+                                <Text style={{ color: colors.primary }}>Termos de Uso</Text> e{" "}
+                                <Text style={{ color: colors.primary }}>
+                                    Política de Privacidade
+                                </Text>
+                            </Text>
+                        </View>
+
+                        {/* BOTÃO CRIAR CONTA */}
+                        <TouchableOpacity
+                            style={[
+                                styles.createButton,
+                                {
+                                    backgroundColor: agreeTerms
+                                        ? colors.buttonPrimary
+                                        : colors.textTertiary + "40",
+                                },
+                            ]}
+                            disabled={!agreeTerms || loading}
+                            onPress={handleRegister}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color={colors.buttonText} />
+                            ) : (
+                                <Text
+                                    style={[
+                                        styles.createButtonText,
+                                        { color: colors.buttonText },
+                                    ]}
+                                >
+                                    Criar Conta
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+
+                        {/* Divider */}
+                        <Text
+                            style={[
+                                styles.orText,
+                                { color: colors.textSecondary, marginVertical: 22 },
+                            ]}
+                        >
+                            ou continue com
+                        </Text>
+
+                        {/* SOCIAL LOGIN */}
+                        <View style={styles.socialRow}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.socialButton,
+                                    { backgroundColor: colors.surface },
                                 ]}
                             >
-                                Criar Conta
+                                <FontAwesome name="google" size={18} color={colors.text} />
+                                <Text style={[styles.socialText, { color: colors.text }]}>
+                                    Google
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.socialButton,
+                                    { backgroundColor: colors.surface },
+                                ]}
+                            >
+                                <FontAwesome name="facebook" size={18} color={colors.text} />
+                                <Text style={[styles.socialText, { color: colors.text }]}>
+                                    Facebook
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Link Login */}
+                        <View style={styles.loginRow}>
+                            <Text style={{ color: colors.textSecondary }}>
+                                Já tem uma conta?{" "}
                             </Text>
-                        )}
-                    </TouchableOpacity>
+                            <TouchableOpacity onPress={() => router.push("/stacks/auth/login")}>
+                                <Text style={{ color: colors.primary }}>Fazer login</Text>
+                            </TouchableOpacity>
+                        </View>
 
-                    {/* Divider */}
-                    <Text
-                        style={[
-                            styles.orText,
-                            { color: colors.textSecondary, marginVertical: 22 },
-                        ]}
-                    >
-                        ou continue com
-                    </Text>
-
-                    {/* SOCIAL LOGIN */}
-                    <View style={styles.socialRow}>
-                        <TouchableOpacity
+                        {/* RODAPÉ */}
+                        <Text
                             style={[
-                                styles.socialButton,
-                                { backgroundColor: colors.surface },
+                                styles.footer,
+                                { color: colors.textTertiary, marginTop: 30 },
                             ]}
                         >
-                            <FontAwesome name="google" size={18} color={colors.text} />
-                            <Text style={[styles.socialText, { color: colors.text }]}>
-                                Google
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[
-                                styles.socialButton,
-                                { backgroundColor: colors.surface },
-                            ]}
-                        >
-                            <FontAwesome name="facebook" size={18} color={colors.text} />
-                            <Text style={[styles.socialText, { color: colors.text }]}>
-                                Facebook
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Link Login */}
-                    <View style={styles.loginRow}>
-                        <Text style={{ color: colors.textSecondary }}>
-                            Já tem uma conta?{" "}
+                            Suporte • Privacidade • Termos{"\n"}
+                            © 2024 EnergyAnalytics. Todos os direitos reservados.
                         </Text>
-                        <TouchableOpacity onPress={() => router.push("/login")}>
-                            <Text style={{ color: colors.primary }}>Fazer login</Text>
-                        </TouchableOpacity>
                     </View>
-
-                    {/* RODAPÉ */}
-                    <Text
-                        style={[
-                            styles.footer,
-                            { color: colors.textTertiary, marginTop: 30 },
-                        ]}
-                    >
-                        Suporte • Privacidade • Termos{"\n"}
-                        © 2024 EnergyAnalytics. Todos os direitos reservados.
-                    </Text>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeScreen>
     );
 }
 

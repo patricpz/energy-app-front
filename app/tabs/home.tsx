@@ -4,27 +4,32 @@ import EnergyMeter from "../components/EnergyMeter";
 import GraphicMeter from "../components/GraphicMeter";
 import Header from "../components/Header";
 import { useTheme } from "../context/ThemeContext";
+import SafeScreen from "../SafeScreen";
 
 export default function Home() {
     const { theme } = useTheme();
-    
-    return (
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <Header />
 
-            <View style={styles.content}>
-                <Text style={[styles.title, { color: theme.colors.text }]}>Home Screen</Text>
-                <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-                    Bem-vindo ao painel do EnergyPro ⚡
-                </Text>
-                <View style={{ alignItems: "center", marginTop: 20 }}>
-                    <EnergyMeter pulseActive />
-                </View>
-                <View style={styles.sectionGraphic}>
-                    <GraphicMeter />
+    return (
+        <SafeScreen>
+
+            <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+                <Header />
+
+                <View style={styles.content}>
+                    <Text style={[styles.title, { color: theme.colors.text }]}>Home Screen</Text>
+                    <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+                        Bem-vindo ao painel do EnergyPro ⚡
+                    </Text>
+                    <View style={{ alignItems: "center", marginTop: 20 }}>
+                        <EnergyMeter pulseActive />
+                    </View>
+                    <View style={styles.sectionGraphic}>
+                        <GraphicMeter />
+                    </View>
                 </View>
             </View>
-        </View>
+        </SafeScreen>
+
     );
 }
 
