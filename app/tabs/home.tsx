@@ -1,6 +1,7 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import EnergyMeter from "../components/EnergyMeter";
+import AppCard from "../components/GlobalCard";
 import GraphicMeter from "../components/GraphicMeter";
 import Header from "../components/Header";
 import { useTheme } from "../context/ThemeContext";
@@ -22,6 +23,16 @@ export default function Home() {
                         </Text>
                         <View style={{ alignItems: "center", marginTop: 20 }}>
                             <EnergyMeter pulseActive />
+                        </View>
+                        <View>
+                            <AppCard
+                                title="Consumo Total"
+                                value="156.8"
+                                subtitle="kWh"
+                                icon="flash"
+                                color="#facc15"
+                            />
+
                         </View>
                         <View style={styles.sectionGraphic}>
                             <GraphicMeter />

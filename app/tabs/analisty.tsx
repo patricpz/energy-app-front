@@ -1,5 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import GraphicMeter from "../components/GraphicMeter";
+import EnergyGraphCard from "../components/EnergyGraphicCard";
 import Header from "../components/Header";
 import { useTheme } from "../context/ThemeContext";
 import SafeScreen from "../SafeScreen";
@@ -16,7 +16,8 @@ export default function Analisty() {
 
                     <View style={styles.content}>
                         <Text style={[styles.title, { color: theme.colors.text }]}>Analisty Screen</Text>
-                        <GraphicMeter />
+                        {/* <GraphicMeter /> */}
+                        <EnergyGraphCard />
 
                     </View>
                 </View>
