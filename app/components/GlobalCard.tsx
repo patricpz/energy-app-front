@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useTheme } from "../context/ThemeContext";
 
 interface GlobalCardProps {
     title: string;
@@ -16,30 +17,73 @@ export default function GlobalCard({
     value,
     subtitle,
     icon,
-    color = "#FFFFFF",
+    color,
     variant = "default",
 }: GlobalCardProps) {
+    const { theme } = useTheme();
+    const colors = theme.colors;
+
+    // Cor prioritária → se não passar "color", usa colors.text primária
+    const iconAndValueColor = color || colors.text;
+
     return (
-        <View style={[styles.card, variant === "large" && styles.cardLarge]}>
+        <View
+            style={[
+                styles.card,
+                {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                },
+                variant === "large" && styles.cardLarge,
+            ]}
+        >
             <View style={styles.header}>
-                <Text style={styles.title}>{title}</Text>
-                {icon && <Ionicons name={icon} size={20} color={color} />}
+                <Text
+                    style={[
+                        styles.title,
+                        { color: colors.textSecondary },
+                    ]}
+                >
+                    {title}
+                </Text>
+
+                {icon && (
+                    <Ionicons
+                        name={icon}
+                        size={20}
+                        color={iconAndValueColor}
+                    />
+                )}
             </View>
 
-            <Text style={[styles.value, { color }]}>{value}</Text>
+            <Text
+                style={[
+                    styles.value,
+                    { color: iconAndValueColor },
+                ]}
+            >
+                {value}
+            </Text>
 
-            {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+            {subtitle && (
+                <Text
+                    style={[
+                        styles.subtitle,
+                        { color: colors.textTertiary },
+                    ]}
+                >
+                    {subtitle}
+                </Text>
+            )}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: "#111827",
         padding: 16,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: "#1e293b",
         width: "100%",
     },
 
@@ -54,7 +98,6 @@ const styles = StyleSheet.create({
     },
 
     title: {
-        color: "#e2e8f0",
         fontSize: 14,
     },
 
@@ -67,6 +110,5 @@ const styles = StyleSheet.create({
     subtitle: {
         marginTop: -4,
         fontSize: 13,
-        color: "#64748b",
     },
 });
