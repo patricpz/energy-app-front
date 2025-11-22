@@ -10,7 +10,6 @@ export default function SafeScreen({ children, style }: any) {
         styles.container,
         {
           paddingTop: insets.top,
-          paddingBottom: insets.bottom + 12, // impede componentes nos botões virtuais
           paddingLeft: insets.left,
           paddingRight: insets.right,
         },

@@ -45,7 +45,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen name="booking"
         options={{
-          tabBarLabel: "Devices",
+          tabBarLabel: "ESP32",
           tabBarIcon: ({ color, size }) => (
             <WrenchIcon color={color} size={size} />
           )
