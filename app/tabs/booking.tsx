@@ -379,7 +379,6 @@ useEffect(() => {
       }
     }
 
-    // Agora que tem permissão → pegar o SSID
     NetworkInfo.getSSID().then((ssid) => {
       if (ssid && ssid !== "<unknown ssid>") {
         setWifiSSID(ssid);
