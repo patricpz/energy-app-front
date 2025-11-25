@@ -1,5 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import EnergyGraphCard from "../components/EnergyGraphicCard";
+import GraphicMeter from "../components/GraphicMeter";
 import Header from "../components/Header";
 import { useTheme } from "../context/ThemeContext";
 import SafeScreen from "../SafeScreen";
@@ -16,8 +16,8 @@ export default function Analisty() {
 
                     <View style={styles.content}>
                         <Text style={[styles.title, { color: theme.colors.text }]}>Analisty Screen</Text>
-                        {/* <GraphicMeter /> */}
-                        <EnergyGraphCard />
+                        <GraphicMeter />
+                        {/* <EnergyGraphCard /> */}
 
                     </View>
                 </View>
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        paddingHorizontal: 20,
+        paddingHorizontal: 10,
         paddingTop: 40,
     },
     title: {

@@ -108,10 +108,10 @@ export default function EnergyGraphCard() {
 const styles = StyleSheet.create({
     container: {
         backgroundColor: "#FFF",
-        borderRadius: 20,
         padding: 10,
-        elevation: 6,
         margin: 16,
+        borderColor: "#000",
+        borderWidth: 1,
     },
     title: {
         fontSize: 16,

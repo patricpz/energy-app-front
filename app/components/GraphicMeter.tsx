@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import {
     BarChart,
     LineChart,
@@ -14,6 +14,8 @@ type ChartType = "linha" | "barra" | "pizza";
 export default function GraphicMeter() {
     const { theme } = useTheme();
     const colors = theme.colors;
+    const screenWidth = Dimensions.get("window").width;
+
 
     const [selectedPoint, setSelectedPoint] = useState(null);
     const [currentTime, setCurrentTime] = useState("");
@@ -76,15 +78,15 @@ export default function GraphicMeter() {
     const [liveData, setLiveData] = useState(() => getDataByPeriod(periodFilter));
 
     // Atualização de valores em tempo real baseado no período
-    useEffect(() => {
-        setLiveData(getDataByPeriod(periodFilter));
-        
-        const interval = setInterval(() => {
-            setLiveData(getDataByPeriod(periodFilter));
-        }, 3000); // Atualiza a cada 3 segundos
+    // useEffect(() => {
+    //     setLiveData(getDataByPeriod(periodFilter));
 
-        return () => clearInterval(interval);
-    }, [periodFilter]);
+    //     const interval = setInterval(() => {
+    //         setLiveData(getDataByPeriod(periodFilter));
+    //     }, 3000); // Atualiza a cada 3 segundos
+
+    //     return () => clearInterval(interval);
+    // }, [periodFilter]);
 
     const chartColor = colors.primary;
 
@@ -98,13 +100,13 @@ export default function GraphicMeter() {
     const spacingValue = getSpacing();
 
     // Componente de Badge/Botão de Filtro
-    const FilterBadge = ({ 
-        label, 
-        isActive, 
-        onPress 
-    }: { 
-        label: string; 
-        isActive: boolean; 
+    const FilterBadge = ({
+        label,
+        isActive,
+        onPress
+    }: {
+        label: string;
+        isActive: boolean;
         onPress: () => void;
     }) => (
         <TouchableOpacity
@@ -218,21 +220,33 @@ export default function GraphicMeter() {
                     data={liveData}
                     curved
                     areaChart
+                    adjustToWidth={true}
                     startFillColor={chartColor}
                     endFillColor={chartColor}
                     startOpacity={0.25}
                     endOpacity={0.05}
                     color={chartColor}
+
+                    initialSpacing={0}
+                    endSpacing={0}
+
+                    spacing={(screenWidth - 32) / (liveData.length - 1)}
+
                     height={260}
-                    spacing={spacingValue}
-                    thickness={3}
+                    thickness={1}
                     dataPointsHeight={12}
                     dataPointsWidth={12}
                     dataPointsColor={chartColor}
-                    xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: periodFilter === "dia" ? 10 : 12 }}
                     hideRules
+                    xAxisLabelTextStyle={{
+                        color: colors.textSecondary,
+                        fontSize: 12,
+                    }}
                     onPress={(item) => setSelectedPoint(item)}
                 />
+
+
+
             )}
 
             {chartType === "barra" && (
@@ -276,8 +290,8 @@ const styles = StyleSheet.create({
     container: {
         borderRadius: 16,
         padding: 16,
-        margin: 12,
-        elevation: 6,
+        margin: 1,
+        width: "100%",
     },
     filterContainer: {
         marginBottom: 12,

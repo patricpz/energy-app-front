@@ -1,10 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useTheme } from "../context/ThemeContext";
 
 const Header = () => {
   const { theme } = useTheme();
+  const router = useRouter();
+  const navigateProfile = () => {
+    router.replace("/tabs/profile")
+  }
   
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.header, borderBottomColor: theme.colors.border }]}>
@@ -17,7 +22,7 @@ const Header = () => {
       </View>
 
       {/* Ícone de perfil */}
-      <TouchableOpacity style={styles.profileButton}>
+      <TouchableOpacity style={styles.profileButton} onPress={navigateProfile}>
         <Ionicons name="person-circle-outline" size={28} color={theme.colors.textSecondary} />
       </TouchableOpacity>
     </View>

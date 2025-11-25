@@ -117,6 +117,7 @@ const styles = StyleSheet.create({
         width: "100%",
         alignSelf: "center",
         borderWidth: 2,
+        marginBottom: 16,
     },
     title: {
         fontSize: 13,
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 10,
         marginBottom: 12,
-        height: 88,
+        height: 100,
         width: 311,
         alignItems: "center",
         justifyContent: "center",
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
     displayText: {
         fontFamily: "Digital",
         fontSize: 65,
-        height: 50,
+        height: 80,
         letterSpacing: 3,
         textAlign: "center",
         textAlignVertical: "center",
