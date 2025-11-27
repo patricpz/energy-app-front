@@ -55,9 +55,8 @@ export default function Profile() {
     return (
         
         <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={["top"]}>
-            {/* Header */}
             <View style={[styles.header, dynamicStyles.header]}>
-                <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>Profile</Text>
+                <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>Perfil</Text>
                 <View style={styles.headerActions}>
                     <TouchableOpacity onPress={toggleTheme} style={styles.themeToggle}>
                         {themeMode === "light" ? (
@@ -77,7 +76,6 @@ export default function Profile() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* User Profile Card */}
                 <View style={[styles.card, dynamicStyles.card]}>
                     <View style={styles.profileSection}>
                         <View style={styles.profileImageContainer}>
@@ -115,7 +113,7 @@ export default function Profile() {
                 </View>
 
                 {/* Energy Goal Card */}
-                <View style={[styles.card, dynamicStyles.card]}>
+                {/* <View style={[styles.card, dynamicStyles.card]}>
                     <Text style={[styles.cardTitle, dynamicStyles.cardTitle]}>Meta Energética</Text>
                     <View style={styles.goalHeader}>
                         <Text style={[styles.goalLabel, dynamicStyles.goalLabel]}>Meta mensal</Text>
@@ -133,7 +131,7 @@ export default function Profile() {
                     <TouchableOpacity style={[styles.updateButton, dynamicStyles.updateButton]}>
                         <Text style={[styles.updateButtonText, dynamicStyles.updateButtonText]}>Atualizar meta</Text>
                     </TouchableOpacity>
-                </View>
+                </View> */}
 
                 {/* Notifications Card */}
                 <View style={[styles.card, dynamicStyles.card]}>
@@ -155,7 +153,7 @@ export default function Profile() {
                             ios_backgroundColor={theme.colors.switchInactive}
                         />
                     </View>
-                    <View style={styles.notificationItem}>
+                    {/* <View style={styles.notificationItem}>
                         <View style={styles.notificationContent}>
                             <Text style={[styles.notificationTitle, dynamicStyles.notificationTitle]}>
                                 Notificações por e-mail
@@ -171,7 +169,7 @@ export default function Profile() {
                             thumbColor={theme.colors.buttonText}
                             ios_backgroundColor={theme.colors.switchInactive}
                         />
-                    </View>
+                    </View> */}
                 </View>
 
                 {/* Sign Out Button */}

@@ -17,7 +17,6 @@ export default function Analisty() {
                     <View style={styles.content}>
                         <Text style={[styles.title, { color: theme.colors.text }]}>Analisty Screen</Text>
                         <GraphicMeter />
-                        {/* <EnergyGraphCard /> */}
 
                     </View>
                 </View>

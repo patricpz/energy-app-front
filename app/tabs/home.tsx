@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import EnergyMeter from "../components/EnergyMeter";
 import AppCard from "../components/GlobalCard";
 import GraphicMeter from "../components/GraphicMeter";
@@ -17,10 +17,6 @@ export default function Home() {
                     <Header />
 
                     <View style={styles.content}>
-                        <Text style={[styles.title, { color: theme.colors.text }]}>Home Screen</Text>
-                        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-                            Bem-vindo ao painel do EnergyPro ⚡
-                        </Text>
                         <View style={{ alignItems: "center", marginTop: 20 }}>
                             <EnergyMeter pulseActive />
                         </View>

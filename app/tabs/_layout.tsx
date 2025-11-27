@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { BellIcon, ChartLineIcon, HouseIcon, UserIcon, WrenchIcon, ChatTeardropText } from "phosphor-react-native";
+import { BellIcon, ChartLineIcon, ChatTeardropText, HouseIcon, UserIcon, WrenchIcon } from "phosphor-react-native";
 import { useTheme } from "../context/ThemeContext";
 
 export default function TabsLayout() {
@@ -14,7 +14,7 @@ export default function TabsLayout() {
           borderTopColor: theme.colors.border,
           paddingTop: 10,
           paddingBottom: 10,
-          height: 120,
+          height: 90,
         },
         tabBarActiveTintColor: theme.colors.tabBarActive,
         tabBarInactiveTintColor: theme.colors.tabBarInactive,

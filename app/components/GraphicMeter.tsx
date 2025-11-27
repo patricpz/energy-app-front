@@ -23,9 +23,6 @@ export default function GraphicMeter() {
     const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("semana");
     const [chartType, setChartType] = useState<ChartType>("linha");
 
-    // -------------------------
-    //    ATUALIZA TEMPO REAL
-    // -------------------------
     useEffect(() => {
         const interval = setInterval(() => {
             const agora = new Date();
@@ -41,10 +38,6 @@ export default function GraphicMeter() {
         return () => clearInterval(interval);
     }, []);
 
-    // -------------------------
-    //       DADOS AO VIVO
-    // -------------------------
-
     const diasSemana = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
     const horasDia = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, "0")}h`);
     const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -53,19 +46,16 @@ export default function GraphicMeter() {
     const getDataByPeriod = (period: PeriodFilter) => {
         switch (period) {
             case "dia":
-                // 24 horas do dia
                 return horasDia.map((hora) => ({
                     value: Math.floor(Math.random() * 30) + 5,
                     label: hora,
                 }));
             case "semana":
-                // 7 dias da semana
                 return diasSemana.map((dia) => ({
                     value: Math.floor(Math.random() * 30) + 5,
                     label: dia,
                 }));
             case "mes":
-                // 12 meses do ano
                 return meses.map((mes) => ({
                     value: Math.floor(Math.random() * 30) + 5,
                     label: mes,
@@ -90,7 +80,6 @@ export default function GraphicMeter() {
 
     const chartColor = colors.primary;
 
-    // Calcular spacing baseado no período
     const getSpacing = () => {
         if (periodFilter === "dia") return 25;
         if (periodFilter === "semana") return 55;
@@ -99,7 +88,6 @@ export default function GraphicMeter() {
 
     const spacingValue = getSpacing();
 
-    // Componente de Badge/Botão de Filtro
     const FilterBadge = ({
         label,
         isActive,
@@ -140,7 +128,6 @@ export default function GraphicMeter() {
                 { backgroundColor: colors.card, shadowColor: "#000" },
             ]}
         >
-            {/* BADGE DE FILTRO DE PERÍODO */}
             <View style={styles.filterContainer}>
                 <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>
                     Período:
@@ -164,7 +151,6 @@ export default function GraphicMeter() {
                 </View>
             </View>
 
-            {/* BADGE DE FILTRO DE TIPO DE GRÁFICO */}
             <View style={styles.filterContainer}>
                 <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>
                     Gráfico:
@@ -192,7 +178,6 @@ export default function GraphicMeter() {
                 Consumo Tempo Real
             </Text>
 
-            {/* VALOR SELECIONADO */}
             {selectedPoint && (
                 <View
                     style={[
@@ -214,7 +199,6 @@ export default function GraphicMeter() {
                 </View>
             )}
 
-            {/* GRÁFICO SELECIONADO */}
             {chartType === "linha" && (
                 <LineChart
                     data={liveData}

@@ -17,10 +17,7 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
     const displayTextColor = colors.primary; // Azul no modo claro, verde no modo escuro
     const displayBgColor = theme.mode === "light" 
         ? "#E5E7EB" // Cinza claro para modo claro
-        : "#1E293B"; // Cinza escuro para modo escuro (já é colors.surface no dark)
-    
-    // Cores para textos secundários (kWh, +, -)
-    // Preto no modo claro, branco/claro no modo escuro
+        : "#1E293B"; 
     const secondaryTextColor = theme.mode === "light" ? "#000000" : "#FFFFFF";
 
     // Simula o medidor aumentando lentamente
