@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { useTheme } from "../context/ThemeContext";
+import { useEnergyData } from "../hooks/useEnergyData";
 
 interface EnergyMeterProps {
     pulseActive?: boolean;
@@ -8,25 +9,39 @@ interface EnergyMeterProps {
 
 const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
     const { theme } = useTheme();
-    const [value, setValue] = useState(0.0);
+    const { data, loading, error } = useEnergyData();
     const [blinkAnim] = useState(new Animated.Value(1));
+    const [displayValue, setDisplayValue] = useState(0.0);
     
     const colors = theme.colors;
     
     // Cores adaptativas para o display digital
-    const displayTextColor = colors.primary; // Azul no modo claro, verde no modo escuro
+    const displayTextColor = colors.primary;
     const displayBgColor = theme.mode === "light" 
-        ? "#E5E7EB" // Cinza claro para modo claro
+        ? "#E5E7EB"
         : "#1E293B"; 
     const secondaryTextColor = theme.mode === "light" ? "#000000" : "#FFFFFF";
 
-    // Simula o medidor aumentando lentamente
+    // Smooth transition for the meter value
     useEffect(() => {
-        const interval = setInterval(() => {
-            setValue((prev) => parseFloat((prev + 0.1).toFixed(1)));
-        }, 1000);
-        return () => clearInterval(interval);
-    }, []);
+        if (data) {
+            const targetValue = parseFloat(data.currentUsage.toFixed(1));
+            const step = (targetValue - displayValue) / 10;
+            
+            const interval = setInterval(() => {
+                setDisplayValue(prev => {
+                    const newValue = prev + step;
+                    if (Math.abs(targetValue - newValue) < 0.1) {
+                        clearInterval(interval);
+                        return targetValue;
+                    }
+                    return parseFloat(newValue.toFixed(1));
+                });
+            }, 30);
+            
+            return () => clearInterval(interval);
+        }
+    }, [data?.currentUsage]);
 
     // Piscar o pulso vermelho quando ativo
     useEffect(() => {
@@ -73,7 +88,13 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
                     styles.displayText,
                     { color: displayTextColor }
                 ]}>
-                    {value.toFixed(1).padStart(8, "0")}
+                    {loading ? (
+                        <ActivityIndicator color={displayTextColor} />
+                    ) : error ? (
+                        <Text style={{ color: colors.error, fontSize: 16 }}>Erro ao carregar</Text>
+                    ) : (
+                        displayValue.toFixed(1).padStart(8, "0")
+                    )}
                 </Text>
             </View>
 
@@ -93,7 +114,12 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
                 </View>
 
                 <View style={styles.unitContainer}>
-                    <Text style={[styles.unit, { color: secondaryTextColor }]}>kWh</Text>
+                    <Text style={[styles.unit, { color: secondaryTextColor }]}>
+                        {data?.lastUpdated ? new Date(data.lastUpdated).toLocaleTimeString() : '--:--'}
+                    </Text>
+                    <Text style={[styles.unit, { color: secondaryTextColor, marginLeft: 8 }]}>
+                        {data ? 'kWh' : ''}
+                    </Text>
                     <View style={[
                         styles.symbolBox,
                         { borderColor: colors.border }
@@ -148,8 +174,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     pulseContainer: {
-        flexDirection: "row",
-        alignItems: "center",
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
     },
     pulseLabel: {
         fontSize: 13,

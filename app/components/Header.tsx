@@ -13,7 +13,6 @@ const Header = () => {
   
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.header, borderBottomColor: theme.colors.border }]}>
-      {/* Logo + Nome */}
       <View style={styles.logoContainer}>
         <View style={[styles.iconBackground, { backgroundColor: theme.colors.primary }]}>
           <Ionicons name="flash" size={18} color="#FFD700" />
@@ -21,7 +20,6 @@ const Header = () => {
         <Text style={[styles.title, { color: theme.colors.text }]}>EnergyPro</Text>
       </View>
 
-      {/* Ícone de perfil */}
       <TouchableOpacity style={styles.profileButton} onPress={navigateProfile}>
         <Ionicons name="person-circle-outline" size={28} color={theme.colors.textSecondary} />
       </TouchableOpacity>
