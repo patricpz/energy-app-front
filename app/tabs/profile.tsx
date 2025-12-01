@@ -1,3 +1,4 @@
+import useAuth from "@/app/hooks/useAuth";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Gear, Moon, PencilSimple, SignOut, Sun } from "phosphor-react-native";
@@ -16,6 +17,7 @@ import { useTheme } from "../context/ThemeContext";
 export default function Profile() {
     const router = useRouter();
     const { theme, themeMode, toggleTheme } = useTheme();
+    const { user, logout } = useAuth();
     const [allNotifications, setAllNotifications] = useState(true);
     const [emailNotifications, setEmailNotifications] = useState(true);
 
@@ -47,9 +49,9 @@ export default function Profile() {
         notificationDescription: { color: theme.colors.textSecondary },
     };
 
-    const handleSignOut = () => {
+    const handleSignOut = async () => {
+        await logout();
         router.replace("/stacks/auth/login");
-        console.log("User signed out");
     }
 
     return (
@@ -91,10 +93,8 @@ export default function Profile() {
                             </TouchableOpacity>
                         </View>
                         <View style={styles.profileInfo}>
-                            <Text style={[styles.userName, dynamicStyles.userName]}>Patric Araujo</Text>
-                            <Text style={[styles.userEmail, dynamicStyles.userEmail]}>
-                                patric.patric@gmail.com
-                            </Text>
+                            <Text style={[styles.userName, dynamicStyles.userName]}>{user?.name ?? 'Patric Araujo'}</Text>
+                            <Text style={[styles.userEmail, dynamicStyles.userEmail]}>{user?.email ?? 'patric.patric@gmail.com'}</Text>
                             <Text style={[styles.userPhone, dynamicStyles.userPhone]}>
                                 (85) 94002-8922
                             </Text>

@@ -1,22 +1,19 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-// Configure base URL - replace with your actual API URL
 const API_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:3000/api' // For Android emulator
-  : 'http://localhost:3000/api'; // For iOS simulator or physical device
+  ? 'http://10.0.2.2:3000/api'
+  : 'http://https://energy-app-backend-nqub.onrender.com/';
 
-// Create axios instance with base URL
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  timeout: 10000, // 10 seconds
+  timeout: 5000,
 });
 
-// Add a request interceptor to include auth token if available
 api.interceptors.request.use(
   (config) => {
     // You can add auth token here if needed
