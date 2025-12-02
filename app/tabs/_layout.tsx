@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { BellIcon, ChartLineIcon, ChatTeardropText, HouseIcon, UserIcon, WrenchIcon } from "phosphor-react-native";
+import { BellIcon, ChartLineIcon, ChatTeardropText, DevicesIcon, HouseIcon, UserIcon, WrenchIcon } from "phosphor-react-native";
 import { useTheme } from "../context/ThemeContext";
 
 export default function TabsLayout() {
@@ -48,6 +48,14 @@ export default function TabsLayout() {
           tabBarLabel: "ESP32",
           tabBarIcon: ({ color, size }) => (
             <WrenchIcon color={color} size={size} />
+          )
+        }}
+      />
+      <Tabs.Screen name="devices"
+        options={{
+          tabBarLabel: "Dispositivos",
+          tabBarIcon: ({ color, size }) => (
+            <DevicesIcon color={color} size={size} />
           )
         }}
       />

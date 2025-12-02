@@ -1,11 +1,13 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import GraphicMeter from "../components/GraphicMeter";
+import { useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Header from "../components/Header";
+import ModalGlobal from "../components/ModalGlobal";
 import { useTheme } from "../context/ThemeContext";
 import SafeScreen from "../SafeScreen";
 
 export default function Analisty() {
     const { theme } = useTheme();
+    const [isOpen, setIsOpen] = useState(false);
 
     return (
         <SafeScreen>
@@ -16,7 +18,10 @@ export default function Analisty() {
 
                     <View style={styles.content}>
                         <Text style={[styles.title, { color: theme.colors.text }]}>Analisty Screen</Text>
-                        <GraphicMeter />
+                        <Pressable style={styles.button} onPress={() => setIsOpen(true)}>
+                            <Text style={{ color: '#FFF' }}>Open Modal</Text>
+                        </Pressable>
+                        <ModalGlobal visible={isOpen} onClose={() => setIsOpen(false)} />
 
                     </View>
                 </View>
@@ -43,4 +48,11 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 15,
     },
+    button: {
+        marginTop: 20,
+        padding: 10,
+        borderRadius: 8,
+        alignItems: "center",
+        backgroundColor: '#007AFF',
+    }
 });
