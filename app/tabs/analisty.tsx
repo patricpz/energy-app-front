@@ -21,7 +21,9 @@ export default function Analisty() {
                         <Pressable style={styles.button} onPress={() => setIsOpen(true)}>
                             <Text style={{ color: '#FFF' }}>Open Modal</Text>
                         </Pressable>
-                        <ModalGlobal visible={isOpen} onClose={() => setIsOpen(false)} />
+                        <ModalGlobal visible={isOpen} onClose={() => setIsOpen(false)} title="Configurações">
+                            <Text style={{ color: "#888" }}>Aqui vai qualquer conteúdo.</Text>
+                        </ModalGlobal>
 
                     </View>
                 </View>

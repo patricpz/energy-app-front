@@ -17,10 +17,8 @@ export default function WebSocketScreen() {
   const ws = useRef<WebSocket | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // WebSocket connection setup
   useEffect(() => {
-    // Replace with your WebSocket server URL
-    const wsUrl = 'ws://your-websocket-server.com';
+    const wsUrl = 'wss://energy-app-backend-nqub.onrender.com/ws';
     
     ws.current = new WebSocket(wsUrl);
 

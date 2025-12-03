@@ -1,86 +1,92 @@
-import { XIcon } from 'phosphor-react-native';
-import React, { useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { XIcon } from "phosphor-react-native";
+import React from "react";
+import {
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { useTheme } from "../context/ThemeContext";
 
 interface ModalGlobalProps {
   visible: boolean;
   onClose: () => void;
+  children?: React.ReactNode;
+  title?: string;
 }
 
-const ModalGlobal = ({visible, onClose}:ModalGlobalProps) => {
-  const [modalVisible, setModalVisible] = useState(false);
+export default function ModalGlobal({
+  visible,
+  onClose,
+  children,
+  title,
+}: ModalGlobalProps) {
+  const { theme } = useTheme();
+  const colors = theme.colors;
+
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.centeredView}>
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={visible}
-          onRequestClose={() => {
-            Alert.alert('Modal has been closed.');
-            setModalVisible(!modalVisible);
-          }}>
-          <View style={styles.centeredView}>
-            <View style={styles.modalView}>
-                <Pressable onPress={onClose}>
-                    <XIcon size={32} />
-                </Pressable>
-              <Text style={styles.modalText}>Hello World!</Text>
-              <Pressable
-                style={[styles.button, styles.buttonClose]}
-                onPress={onClose}>
-                <Text style={styles.textStyle}>Hide Modal</Text>
-              </Pressable>
-            </View>
+    <Modal
+      animationType="fade"
+      transparent
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={styles.backdrop}>
+        <View
+          style={[
+            styles.modalContainer,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          {/* HEADER */}
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: colors.text }]}>
+              {title || ""}
+            </Text>
+
+            <TouchableOpacity onPress={onClose}>
+              <XIcon size={28} color={colors.text} />
+            </TouchableOpacity>
           </View>
-        </Modal>
-      </SafeAreaView>
-    </SafeAreaProvider>
+
+          {/* CONTENT */}
+          <View style={styles.content}>{children}</View>
+        </View>
+      </View>
+    </Modal>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  centeredView: {
+  backdrop: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
   },
-  modalView: {
-    margin: 20,
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+
+  modalContainer: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
   },
-  button: {
-    borderRadius: 20,
-    padding: 10,
-    elevation: 2,
+
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
   },
-  buttonOpen: {
-    backgroundColor: '#F194FF',
+
+  title: {
+    fontSize: 18,
+    fontWeight: "600",
   },
-  buttonClose: {
-    backgroundColor: '#2196F3',
-  },
-  textStyle: {
-    color: 'white',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  modalText: {
-    marginBottom: 15,
-    textAlign: 'center',
+
+  content: {
+    marginTop: 4,
   },
 });
-
-export default ModalGlobal;
