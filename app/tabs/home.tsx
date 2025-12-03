@@ -1,14 +1,16 @@
-import React from "react";
+import React, { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import EnergyMeter from "../components/EnergyMeter";
 import AppCard from "../components/GlobalCard";
 import GraphicMeter from "../components/GraphicMeter";
 import Header from "../components/Header";
+import PulseWebSocketLed from "../components/PulseWebSocketLed";
 import { useTheme } from "../context/ThemeContext";
 import SafeScreen from "../SafeScreen";
 
 export default function Home() {
     const { theme } = useTheme();
+    const [pulseActive, setPulseActive] = useState(false);
 
     return (
         <SafeScreen>
@@ -17,8 +19,17 @@ export default function Home() {
                     <Header />
 
                     <View style={styles.content}>
+                        <View style={styles.pulseRow}>
+                            <PulseWebSocketLed
+                                onPulse={() => {
+                                    setPulseActive(true);
+                                    setTimeout(() => setPulseActive(false), 150);
+                                }}
+                            />
+                        </View>
+
                         <View style={{ alignItems: "center", marginTop: 20 }}>
-                            <EnergyMeter pulseActive />
+                            <EnergyMeter pulseActive={pulseActive} />
                         </View>
                         <View>
                             <AppCard
@@ -28,7 +39,6 @@ export default function Home() {
                                 icon="flash"
                                 color="#facc15"
                             />
-
                         </View>
                         <View style={styles.sectionGraphic}>
                             <GraphicMeter />
@@ -37,7 +47,6 @@ export default function Home() {
                 </View>
             </ScrollView>
         </SafeScreen>
-
     );
 }
 
@@ -61,6 +70,10 @@ const styles = StyleSheet.create({
     sectionGraphic: {
         marginTop: 20,
         padding: 16,
-    }
+    },
+    pulseRow: {
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        paddingRight: 8,
+    },
 });
-
