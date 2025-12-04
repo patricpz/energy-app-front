@@ -31,7 +31,14 @@ export default function Home() {
                         <View style={{ alignItems: "center", marginTop: 20 }}>
                             <EnergyMeter pulseActive={pulseActive} />
                         </View>
-                        <View>
+                        <View style={styles.cardRow}>
+                            <AppCard
+                                title="Custo de Energia"
+                                value="R$ 7.78"
+                                subtitle="kWh"
+                                icon="flash"
+                                color="#153ffaff"
+                            />
                             <AppCard
                                 title="Consumo Total"
                                 value="156.8"
@@ -76,4 +83,9 @@ const styles = StyleSheet.create({
         justifyContent: "flex-end",
         paddingRight: 8,
     },
+    cardRow: {
+        marginTop: 20,
+        flexDirection: "row",
+        justifyContent: "space-between",
+    }
 });

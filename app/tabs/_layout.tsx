@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { BellIcon, ChartLineIcon, ChatTeardropText, DevicesIcon, HouseIcon, UserIcon, WrenchIcon } from "phosphor-react-native";
+import { BellIcon, ChartLineIcon, DevicesIcon, HouseIcon, UserIcon } from "phosphor-react-native";
 import { useTheme } from "../context/ThemeContext";
 
 export default function TabsLayout() {
@@ -37,17 +37,9 @@ export default function TabsLayout() {
       />
       <Tabs.Screen name="analisty"
         options={{
-          tabBarLabel: "Analytics",
+          tabBarLabel: "Análises",
           tabBarIcon: ({ color, size }) => (
             <ChartLineIcon size={size} color={color} />
-          )
-        }}
-      />
-      <Tabs.Screen name="booking"
-        options={{
-          tabBarLabel: "ESP32",
-          tabBarIcon: ({ color, size }) => (
-            <WrenchIcon color={color} size={size} />
           )
         }}
       />
@@ -59,17 +51,9 @@ export default function TabsLayout() {
           )
         }}
       />
-      <Tabs.Screen name="websocket"
-        options={{
-          tabBarLabel: "WebSocket",
-          tabBarIcon: ({ color, size }) => (
-            <ChatTeardropText color={color} size={size} />
-          )
-        }}
-      />
       <Tabs.Screen name="alerts"
         options={{
-          tabBarLabel: "Alerts",
+          tabBarLabel: "Alertas",
           tabBarIcon: ({ color, size }) => (
             <BellIcon color={color} size={size} />
           )
@@ -77,7 +61,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen name="profile"
         options={{
-          tabBarLabel: "Profile",
+          tabBarLabel: "Perfil",
           tabBarIcon: ({ color, size }) => (
             <UserIcon color={color} size={size} />
           )

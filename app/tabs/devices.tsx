@@ -2,15 +2,17 @@ import {
   DesktopIcon,
   FanIcon,
   IceCreamIcon,
-  PlusCircle,
+  PlusIcon,
   TelevisionSimpleIcon,
   WashingMachineIcon
 } from 'phosphor-react-native';
 
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Header from '../components/Header';
 import ModalAddDevice from '../components/ModalAddDevice';
 import { useTheme } from '../context/ThemeContext';
+import SafeScreen from '../SafeScreen';
 
 export default function Devices() {
   const { theme } = useTheme();
@@ -18,104 +20,106 @@ export default function Devices() {
   const [modalVisible, setModalVisible] = useState(false);
 
   const devices: Device[] = [
-    { 
-      id: 1, 
+    {
+      id: 1,
       name: 'TV da sala de estar',
       icon: (color, size) => <TelevisionSimpleIcon color={color} size={size} weight="duotone" />,
       consumption: '0.15 kWh',
       online: true,
-      active: true 
+      active: true
     },
-    { 
-      id: 2, 
+    {
+      id: 2,
       name: 'Geladeira de cozinha',
       icon: (color, size) => <FanIcon color={color} size={size} weight="duotone" />,
       consumption: '0.45 kWh',
       online: true,
-      active: true 
+      active: true
     },
-    { 
-      id: 3, 
+    {
+      id: 3,
       name: 'Quarto AC',
       icon: (color, size) => <IceCreamIcon color={color} size={size} weight="duotone" />,
       consumption: '1.2 kWh',
       online: false,
-      active: false 
+      active: false
     },
-    { 
-      id: 4, 
+    {
+      id: 4,
       name: 'Pc escritório',
       icon: (color, size) => <DesktopIcon color={color} size={size} weight="duotone" />,
       consumption: '0.25 kWh',
       online: true,
-      active: true 
+      active: true
     },
-    { 
-      id: 5, 
+    {
+      id: 5,
       name: 'Máquina de lavar',
       icon: (color, size) => <WashingMachineIcon color={color} size={size} weight="duotone" />,
       consumption: '0.8 kWh',
       online: false,
-      active: false 
+      active: false
     },
   ];
 
   function handleSaveDevice(device: any) {
     console.log("Novo Equipamento: ", device);
-    // Aqui você adiciona na lista global, Zustand, backend, etc
   }
 
   return (
-    <View style={[styles(theme).container]}>
+    <SafeScreen>
+      <View style={[styles(theme).container]}>
+        <Header />
 
-      {/* HEADER + BOTÃO */}
-      <View style={styles(theme).headerRow}>
-        <Text style={styles(theme).title}>Dispositivos</Text>
+        {/* HEADER + BOTÃO */}
+        <View style={styles(theme).headerRow}>
+          <Text style={styles(theme).title}>Dispositivos</Text>
 
-        <TouchableOpacity onPress={() => setModalVisible(true)}>
-          <PlusCircle size={34} weight="duotone" color={theme.colors.primary} />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity onPress={() => setModalVisible(true)}>
+            <PlusIcon size={34} color={theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView style={{ marginTop: 16 }}>
-        {devices.map((device) => (
-          <View key={device.id} style={styles(theme).card}>
-            <View style={styles(theme).infoRow}>
+        <ScrollView style={{ marginTop: 16 }}>
+          {devices.map((device) => (
+            <View key={device.id} style={styles(theme).card}>
+              <View style={styles(theme).infoRow}>
 
-              {/* Ícone */}
-              <View style={{ marginRight: 14 }}>
-                {device.icon(theme.colors.text, 40)}
+                {/* Ícone */}
+                <View style={{ marginRight: 14 }}>
+                  {device.icon(theme.colors.text, 40)}
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles(theme).deviceName}>{device.name}</Text>
+                  <Text style={styles(theme).consumption}>
+                    Consumo: <Text style={{ color: '#4CAF50' }}>{device.consumption}</Text>
+                  </Text>
+                  <Text
+                    style={[
+                      styles(theme).status,
+                      { color: device.online ? '#4CAF50' : '#F44336' }
+                    ]}
+                  >
+                    • {device.online ? 'Online' : 'Offline'}
+                  </Text>
+                </View>
+
+                {/* <Switch value={device.active} trackColor={{ true: theme.colors.primary }} /> */}
               </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles(theme).deviceName}>{device.name}</Text>
-                <Text style={styles(theme).consumption}>
-                  Consumo: <Text style={{ color: '#4CAF50' }}>{device.consumption}</Text>
-                </Text>
-                <Text
-                  style={[
-                    styles(theme).status,
-                    { color: device.online ? '#4CAF50' : '#F44336' }
-                  ]}
-                >
-                  • {device.online ? 'Online' : 'Offline'}
-                </Text>
-              </View>
-
-              {/* <Switch value={device.active} trackColor={{ true: theme.colors.primary }} /> */}
             </View>
-          </View>
-        ))}
-      </ScrollView>
+          ))}
+        </ScrollView>
 
-      {/* MODAL */}
-      <ModalAddDevice
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onSave={handleSaveDevice}
-      />
+        {/* MODAL */}
+        <ModalAddDevice
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          onSave={handleSaveDevice}
+        />
 
-    </View>
+      </View>
+    </SafeScreen>
   );
 }
 
@@ -132,7 +136,7 @@ const styles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    padding: 16,
+    padding: 10,
   },
 
   headerRow: {

@@ -20,6 +20,7 @@ export default function Profile() {
     const { user, logout } = useAuth();
     const [allNotifications, setAllNotifications] = useState(true);
     const [emailNotifications, setEmailNotifications] = useState(true);
+    const [modalVisible, setModalVisible] = useState(false);
 
     const dynamicStyles = {
         container: { backgroundColor: theme.colors.background },
@@ -27,7 +28,7 @@ export default function Profile() {
         headerTitle: { color: theme.colors.text },
         card: { backgroundColor: theme.colors.card },
         profileImage: { backgroundColor: theme.colors.primaryBackground },
-        editIcon: { 
+        editIcon: {
             backgroundColor: theme.colors.primary,
             borderColor: theme.colors.card,
         },
@@ -55,7 +56,7 @@ export default function Profile() {
     }
 
     return (
-        
+
         <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={["top"]}>
             <View style={[styles.header, dynamicStyles.header]}>
                 <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>Perfil</Text>
@@ -153,6 +154,16 @@ export default function Profile() {
                             ios_backgroundColor={theme.colors.switchInactive}
                         />
                     </View>
+
+
+                    <TouchableOpacity
+                        style={[styles.button, { backgroundColor: theme.colors.primary }]}
+                        onPress={() => setModalVisible(true)}
+                    >
+                        <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
+                            Conectar ESP32 via BLE
+                        </Text>
+                    </TouchableOpacity>
                     {/* <View style={styles.notificationItem}>
                         <View style={styles.notificationContent}>
                             <Text style={[styles.notificationTitle, dynamicStyles.notificationTitle]}>
@@ -201,6 +212,17 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         gap: 16,
         alignItems: "center",
+    },
+    button: {
+        borderRadius: 12,
+        paddingVertical: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        marginTop: 20,
+    },
+    buttonText: {
+        fontSize: 16,
+        fontWeight: "600",
     },
     themeToggle: {
         padding: 4,

@@ -84,11 +84,15 @@ const styles = StyleSheet.create({
         padding: 16,
         borderRadius: 16,
         borderWidth: 1,
-        width: "100%",
+        flexGrow: 1,          
+        flexShrink: 1,        
+        flexBasis: "48%",     
+        margin: 4,            
     },
 
     cardLarge: {
         padding: 20,
+        flexBasis: '100%'
     },
 
     header: {
