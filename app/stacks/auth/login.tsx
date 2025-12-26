@@ -29,8 +29,15 @@ const LoginScreen = () => {
     const { login } = useAuth();
 
     const handleLogin = async () => {
-        if (!email || !password) {
+        if (!email.trim() || !password.trim()) {
             setError("Por favor, preencha todos os campos");
+            return;
+        }
+
+        // Validação básica de email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+            setError("Por favor, insira um email válido");
             return;
         }
 
@@ -38,10 +45,11 @@ const LoginScreen = () => {
         setError("");
 
         try {
-            await login(email, password);
+            await login(email.trim(), password);
             router.replace("/tabs/home");
         } catch (err: any) {
-            setError(err?.message || "Não foi possível entrar");
+            const errorMessage = err?.message || "Não foi possível entrar. Verifique suas credenciais.";
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }

@@ -1,9 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import { Platform } from 'react-native';
 
-const API_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:3000/api'
-  : 'http://https://energy-app-backend-nqub.onrender.com/';
+// URL da API
+const API_URL = 'https://energy-app-backend-nqub.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -11,19 +10,68 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  timeout: 5000,
+  timeout: 30000, // Aumentar timeout para 30s (API pode ser lenta)
 });
 
+// Interceptor para adicionar token automaticamente
 api.interceptors.request.use(
-  (config) => {
-    // You can add auth token here if needed
-    // const token = await AsyncStorage.getItem('userToken');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+  async (config) => {
+    try {
+      // Não adicionar token em rotas de autenticação (login/register)
+      const isAuthRoute = config.url?.includes('/users/login') || config.url?.includes('/users') && config.method === 'post';
+      
+      if (!isAuthRoute) {
+        const userData = await AsyncStorage.getItem('@energyapp:currentUser');
+        if (userData) {
+          const user = JSON.parse(userData);
+          if (user.token) {
+            config.headers.Authorization = `Bearer ${user.token}`;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error getting token from storage:', error);
+    }
+    
+    // Log da requisição para debug
+    console.log('🌐 API Request:', {
+      method: config.method?.toUpperCase(),
+      url: `${config.baseURL}${config.url}`,
+      headers: config.headers,
+      data: config.data ? (config.url?.includes('password') ? { ...config.data, password: '***' } : config.data) : undefined,
+    });
+    
     return config;
   },
   (error) => {
+    console.error('❌ Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor para tratar erros de autenticação
+api.interceptors.response.use(
+  (response) => {
+    console.log('✅ API Response:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data,
+    });
+    return response;
+  },
+  async (error) => {
+    console.error('❌ API Error:', {
+      status: error.response?.status,
+      url: error.config?.url,
+      message: error.message,
+      data: error.response?.data,
+      headers: error.response?.headers,
+    });
+    
+    if (error.response?.status === 401) {
+      // Token inválido ou expirado - limpar dados de autenticação
+      await AsyncStorage.removeItem('@energyapp:currentUser');
+    }
     return Promise.reject(error);
   }
 );

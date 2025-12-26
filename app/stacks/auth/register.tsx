@@ -23,6 +23,12 @@ interface ValidationErrors {
     email?: string;
     password?: string;
     confirmPassword?: string;
+    state?: string;
+    city?: string;
+    zipCode?: string;
+    district?: string;
+    street?: string;
+    number?: string;
 }
 
 export default function RegisterScreen() {
@@ -40,6 +46,15 @@ export default function RegisterScreen() {
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [touched, setTouched] = useState<Record<string, boolean>>({});
+    
+    // Campos de endereço
+    const [state, setState] = useState("");
+    const [city, setCity] = useState("");
+    const [zipCode, setZipCode] = useState("");
+    const [district, setDistrict] = useState("");
+    const [street, setStreet] = useState("");
+    const [number, setNumber] = useState("");
+    const [complement, setComplement] = useState("");
 
     // Validação de email
     const validateEmail = (email: string): boolean => {
@@ -101,20 +116,59 @@ export default function RegisterScreen() {
             }
         }
 
+        // Validação de endereço (opcional - só valida se algum campo foi preenchido)
+        const hasAnyAddressField = state.trim() || city.trim() || zipCode.trim() || district.trim() || street.trim() || number.trim();
+        
+        if (hasAnyAddressField) {
+            // Se preencheu algum campo, valida os obrigatórios
+            if (touched.state && !state.trim()) {
+                newErrors.state = "Estado é obrigatório";
+            }
+            if (touched.city && !city.trim()) {
+                newErrors.city = "Cidade é obrigatória";
+            }
+            if (touched.zipCode && !zipCode.trim()) {
+                newErrors.zipCode = "CEP é obrigatório";
+            }
+            if (touched.district && !district.trim()) {
+                newErrors.district = "Bairro é obrigatório";
+            }
+            if (touched.street && !street.trim()) {
+                newErrors.street = "Rua é obrigatória";
+            }
+            if (touched.number && !number.trim()) {
+                newErrors.number = "Número é obrigatório";
+            }
+        }
+
         setErrors(newErrors);
-    }, [name, email, password, confirmPassword, touched]);
+    }, [name, email, password, confirmPassword, state, city, zipCode, district, street, number, touched]);
 
     const handleBlur = (field: string) => {
         setTouched((prev) => ({ ...prev, [field]: true }));
     };
 
     const handleRegister = async () => {
-        // Marcar todos os campos como tocados
-        setTouched({ name: true, email: true, password: true, confirmPassword: true });
+        // Marcar apenas os campos obrigatórios como tocados
+        setTouched({ 
+            name: true, 
+            email: true, 
+            password: true, 
+            confirmPassword: true,
+            // Campos de endereço só são marcados se algum foi preenchido
+            ...(state.trim() || city.trim() || zipCode.trim() || district.trim() || street.trim() || number.trim() ? {
+                state: true,
+                city: true,
+                zipCode: true,
+                district: true,
+                street: true,
+                number: true,
+            } : {}),
+        });
 
         // Validação final
         if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-            Alert.alert("Erro", "Por favor, preencha todos os campos");
+            Alert.alert("Erro", "Por favor, preencha todos os campos obrigatórios");
             return;
         }
 
@@ -133,6 +187,15 @@ export default function RegisterScreen() {
             return;
         }
 
+        // Validação de endereço (opcional - só valida se algum campo foi preenchido)
+        const hasAnyAddressField = state.trim() || city.trim() || zipCode.trim() || district.trim() || street.trim() || number.trim();
+        const hasAllAddressFields = state.trim() && city.trim() && zipCode.trim() && district.trim() && street.trim() && number.trim();
+        
+        if (hasAnyAddressField && !hasAllAddressFields) {
+            Alert.alert("Erro", "Se você preencher algum campo de endereço, todos os campos são obrigatórios");
+            return;
+        }
+
         if (!agreeTerms) {
             Alert.alert("Atenção", "Você precisa aceitar os termos de uso para continuar");
             return;
@@ -141,7 +204,25 @@ export default function RegisterScreen() {
         setLoading(true);
 
         try {
-            await register({ name, email, password });
+            // Preparar dados de endereço apenas se todos os campos obrigatórios estiverem preenchidos
+            const addressData = (state.trim() && city.trim() && zipCode.trim() && district.trim() && street.trim() && number.trim()) 
+                ? {
+                    state: state.trim(),
+                    city: city.trim(),
+                    zipCode: zipCode.replace(/\D/g, ''), // Remove formatação do CEP
+                    district: district.trim(),
+                    street: street.trim(),
+                    number: number.trim(),
+                    complement: complement.trim() || undefined,
+                }
+                : undefined;
+
+            await register({ 
+                name: name.trim(), 
+                email: email.trim(), 
+                password,
+                address: addressData,
+            });
             router.replace("/tabs/home");
         } catch (err: any) {
             Alert.alert("Erro", err?.message || "Não foi possível criar conta");
@@ -152,6 +233,11 @@ export default function RegisterScreen() {
 
     const passwordStrength = getPasswordStrength(password);
     const colors = theme.colors;
+    // Validação de endereço (opcional)
+    const hasAnyAddressField = state.trim() || city.trim() || zipCode.trim() || district.trim() || street.trim() || number.trim();
+    const hasAllAddressFields = state.trim() && city.trim() && zipCode.trim() && district.trim() && street.trim() && number.trim();
+    const addressValid = !hasAnyAddressField || hasAllAddressFields;
+
     const isFormValid = 
         name.trim() && 
         validateEmail(email) && 
@@ -162,6 +248,7 @@ export default function RegisterScreen() {
         /[A-Z]/.test(password) &&
         /[0-9]/.test(password) &&
         /[^a-zA-Z0-9]/.test(password) &&
+        addressValid &&
         agreeTerms &&
         Object.keys(errors).length === 0;
 
@@ -349,6 +436,178 @@ export default function RegisterScreen() {
                             </View>
                         )}
 
+                        {/* Seção de Endereço */}
+                        <View style={styles.addressSection}>
+                            <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 24, marginBottom: 8 }]}>Endereço</Text>
+                            <Text style={[styles.optionalText, { color: colors.textTertiary, marginBottom: 16 }]}>Opcional</Text>
+
+                            {/* Estado */}
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>Estado <Text style={{ color: colors.textTertiary, fontSize: 12 }}>(se preencher, todos são obrigatórios)</Text></Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    { 
+                                        backgroundColor: colors.surface, 
+                                        color: colors.text,
+                                        borderWidth: errors.state ? 1 : 0,
+                                        borderColor: errors.state ? "#e74c3c" : "transparent",
+                                    },
+                                ]}
+                                placeholder="Ex: SP, RJ, MG"
+                                placeholderTextColor={colors.textTertiary}
+                                value={state}
+                                onChangeText={setState}
+                                onBlur={() => handleBlur("state")}
+                                autoCapitalize="characters"
+                                maxLength={2}
+                            />
+                            {errors.state && (
+                                <Text style={styles.errorText}>{errors.state}</Text>
+                            )}
+
+                            {/* Cidade */}
+                            <Text style={[styles.label, { color: colors.textSecondary, marginTop: 16 }]}>Cidade</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    { 
+                                        backgroundColor: colors.surface, 
+                                        color: colors.text,
+                                        borderWidth: errors.city ? 1 : 0,
+                                        borderColor: errors.city ? "#e74c3c" : "transparent",
+                                    },
+                                ]}
+                                placeholder="Digite sua cidade"
+                                placeholderTextColor={colors.textTertiary}
+                                value={city}
+                                onChangeText={setCity}
+                                onBlur={() => handleBlur("city")}
+                                autoCapitalize="words"
+                            />
+                            {errors.city && (
+                                <Text style={styles.errorText}>{errors.city}</Text>
+                            )}
+
+                            {/* CEP */}
+                            <Text style={[styles.label, { color: colors.textSecondary, marginTop: 16 }]}>CEP</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    { 
+                                        backgroundColor: colors.surface, 
+                                        color: colors.text,
+                                        borderWidth: errors.zipCode ? 1 : 0,
+                                        borderColor: errors.zipCode ? "#e74c3c" : "transparent",
+                                    },
+                                ]}
+                                placeholder="00000-000"
+                                placeholderTextColor={colors.textTertiary}
+                                value={zipCode}
+                                onChangeText={(text) => {
+                                    // Formatar CEP
+                                    const formatted = text.replace(/\D/g, '').replace(/(\d{5})(\d)/, '$1-$2').slice(0, 9);
+                                    setZipCode(formatted);
+                                }}
+                                onBlur={() => handleBlur("zipCode")}
+                                keyboardType="numeric"
+                                maxLength={9}
+                            />
+                            {errors.zipCode && (
+                                <Text style={styles.errorText}>{errors.zipCode}</Text>
+                            )}
+
+                            {/* Bairro */}
+                            <Text style={[styles.label, { color: colors.textSecondary, marginTop: 16 }]}>Bairro</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    { 
+                                        backgroundColor: colors.surface, 
+                                        color: colors.text,
+                                        borderWidth: errors.district ? 1 : 0,
+                                        borderColor: errors.district ? "#e74c3c" : "transparent",
+                                    },
+                                ]}
+                                placeholder="Digite seu bairro"
+                                placeholderTextColor={colors.textTertiary}
+                                value={district}
+                                onChangeText={setDistrict}
+                                onBlur={() => handleBlur("district")}
+                                autoCapitalize="words"
+                            />
+                            {errors.district && (
+                                <Text style={styles.errorText}>{errors.district}</Text>
+                            )}
+
+                            {/* Rua */}
+                            <Text style={[styles.label, { color: colors.textSecondary, marginTop: 16 }]}>Rua</Text>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    { 
+                                        backgroundColor: colors.surface, 
+                                        color: colors.text,
+                                        borderWidth: errors.street ? 1 : 0,
+                                        borderColor: errors.street ? "#e74c3c" : "transparent",
+                                    },
+                                ]}
+                                placeholder="Digite o nome da rua"
+                                placeholderTextColor={colors.textTertiary}
+                                value={street}
+                                onChangeText={setStreet}
+                                onBlur={() => handleBlur("street")}
+                                autoCapitalize="words"
+                            />
+                            {errors.street && (
+                                <Text style={styles.errorText}>{errors.street}</Text>
+                            )}
+
+                            {/* Número e Complemento em linha */}
+                            <View style={styles.rowInputs}>
+                                <View style={{ flex: 1, marginRight: 8 }}>
+                                    <Text style={[styles.label, { color: colors.textSecondary, marginTop: 16 }]}>Número</Text>
+                                    <TextInput
+                                        style={[
+                                            styles.input,
+                                            { 
+                                                backgroundColor: colors.surface, 
+                                                color: colors.text,
+                                                borderWidth: errors.number ? 1 : 0,
+                                                borderColor: errors.number ? "#e74c3c" : "transparent",
+                                            },
+                                        ]}
+                                        placeholder="123"
+                                        placeholderTextColor={colors.textTertiary}
+                                        value={number}
+                                        onChangeText={setNumber}
+                                        onBlur={() => handleBlur("number")}
+                                        keyboardType="numeric"
+                                    />
+                                    {errors.number && (
+                                        <Text style={styles.errorText}>{errors.number}</Text>
+                                    )}
+                                </View>
+
+                                <View style={{ flex: 1, marginLeft: 8 }}>
+                                    <Text style={[styles.label, { color: colors.textSecondary, marginTop: 16 }]}>Complemento</Text>
+                                    <TextInput
+                                        style={[
+                                            styles.input,
+                                            { 
+                                                backgroundColor: colors.surface, 
+                                                color: colors.text,
+                                            },
+                                        ]}
+                                        placeholder="Opcional"
+                                        placeholderTextColor={colors.textTertiary}
+                                        value={complement}
+                                        onChangeText={setComplement}
+                                        autoCapitalize="words"
+                                    />
+                                </View>
+                            </View>
+                        </View>
+
                         {/* Aceitar termos */}
                         <View style={styles.termsRow}>
                             <Switch
@@ -450,5 +709,9 @@ const styles = StyleSheet.create({
     passwordStrengthText: { fontSize: 12, fontWeight: "500", marginTop: 2 },
     successRow: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 6 },
     successText: { color: "#27ae60", fontSize: 12 },
+    addressSection: { marginTop: 8 },
+    sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
+    optionalText: { fontSize: 12, fontStyle: "italic" },
+    rowInputs: { flexDirection: "row", width: "100%" },
 });
 

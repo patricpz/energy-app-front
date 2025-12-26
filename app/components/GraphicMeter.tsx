@@ -1,15 +1,12 @@
-import React, { useEffect, useState } from "react";
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import {
-    BarChart,
-    LineChart,
-    PieChart
+    BarChart
 } from "react-native-gifted-charts";
 
 import { useTheme } from "../context/ThemeContext";
 
 type PeriodFilter = "dia" | "semana" | "mes";
-type ChartType = "linha" | "barra" | "pizza";
 
 export default function GraphicMeter() {
     const { theme } = useTheme();
@@ -17,11 +14,10 @@ export default function GraphicMeter() {
     const screenWidth = Dimensions.get("window").width;
 
 
-    const [selectedPoint, setSelectedPoint] = useState(null);
+    const [selectedPoint, setSelectedPoint] = useState<any>(null);
     const [currentTime, setCurrentTime] = useState("");
     const [currentDate, setCurrentDate] = useState("");
-    const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("semana");
-    const [chartType, setChartType] = useState<ChartType>("linha");
+    const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("dia");
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -39,54 +35,100 @@ export default function GraphicMeter() {
     }, []);
 
     const diasSemana = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-    const horasDia = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, "0")}h`);
+    const horasDia = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, "0")}:00`);
     const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-    // Dados baseados no filtro de período
-    const getDataByPeriod = (period: PeriodFilter) => {
-        switch (period) {
+    const diaLabelIndexes = new Set([0, 6, 12, 18, 23]);
+
+    // Gerar dados estáveis baseados no período
+    const baseData = useMemo(() => {
+        const seed = periodFilter === "dia" ? 1 : periodFilter === "semana" ? 2 : 3;
+        const random = (index: number) => {
+            const x = Math.sin((seed + index) * 12.9898) * 43758.5453;
+            return x - Math.floor(x);
+        };
+
+        switch (periodFilter) {
             case "dia":
-                return horasDia.map((hora) => ({
-                    value: Math.floor(Math.random() * 30) + 5,
-                    label: hora,
+                return horasDia.map((hora, index) => ({
+                    value: Math.floor(random(index) * 25) + 5,
+                    label: diaLabelIndexes.has(index) ? (index === 23 ? "23:59" : hora) : "",
                 }));
             case "semana":
-                return diasSemana.map((dia) => ({
-                    value: Math.floor(Math.random() * 30) + 5,
+                return diasSemana.map((dia, index) => ({
+                    value: Math.floor(random(index) * 30) + 5,
                     label: dia,
                 }));
             case "mes":
-                return meses.map((mes) => ({
-                    value: Math.floor(Math.random() * 30) + 5,
+                return meses.map((mes, index) => ({
+                    value: Math.floor(random(index) * 30) + 5,
                     label: mes,
                 }));
             default:
                 return [];
         }
-    };
+    }, [periodFilter]);
 
-    const [liveData, setLiveData] = useState(() => getDataByPeriod(periodFilter));
+    // Aplicar seleção e tooltip aos dados base
+    const liveData = useMemo(() => {
+        return baseData.map((item, index) => {
+            const isSelected = selectedPoint?.index === index;
+            return {
+                ...item,
+                frontColor: isSelected ? colors.primaryLight || colors.primary : colors.primary,
+                topLabelComponent: () => isSelected ? (
+                    <View
+                        style={[
+                            styles.tooltipContainer,
+                            {
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                            },
+                        ]}
+                    >
+                        <Text style={[styles.tooltipText, { color: colors.text }]}>
+                            {item.value.toFixed(1)} kWh
+                        </Text>
+                    </View>
+                ) : null,
+            };
+        });
+    }, [baseData, selectedPoint, colors]);
 
-    // Atualização de valores em tempo real baseado no período
-    // useEffect(() => {
-    //     setLiveData(getDataByPeriod(periodFilter));
-
-    //     const interval = setInterval(() => {
-    //         setLiveData(getDataByPeriod(periodFilter));
-    //     }, 3000); // Atualiza a cada 3 segundos
-
-    //     return () => clearInterval(interval);
-    // }, [periodFilter]);
+    useEffect(() => {
+        setSelectedPoint(null);
+    }, [periodFilter]);
 
     const chartColor = colors.primary;
 
+    const gridColor = colors.border;
+    const axisColor = colors.border;
+
+    // Calcular consumo médio
+    const averageConsumption = liveData.length > 0
+        ? (liveData.reduce((sum, item) => sum + item.value, 0) / liveData.length).toFixed(1)
+        : "0.0";
+
     const getSpacing = () => {
-        if (periodFilter === "dia") return 25;
-        if (periodFilter === "semana") return 55;
-        return 30; // mês
+        if (periodFilter === "dia") return 2;
+        if (periodFilter === "semana") return 12;
+        return 8;
     };
 
     const spacingValue = getSpacing();
+
+    const getBarWidth = () => {
+        if (periodFilter === "dia") return 6;
+        if (periodFilter === "semana") return 18;
+        return 12;
+    };
+
+    const barWidthValue = getBarWidth();
+
+    const containerChartWidth = Math.min(screenWidth - 72, 460);
+    const computedChartWidth =
+        liveData.length * (barWidthValue + spacingValue) + 12 + 24 + 32;
+    const chartWidth = Math.max(containerChartWidth, computedChartWidth);
 
     const FilterBadge = ({
         label,
@@ -151,121 +193,55 @@ export default function GraphicMeter() {
                 </View>
             </View>
 
-            <View style={styles.filterContainer}>
-                <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>
-                    Gráfico:
-                </Text>
-                <View style={styles.filterRow}>
-                    <FilterBadge
-                        label="Linha"
-                        isActive={chartType === "linha"}
-                        onPress={() => setChartType("linha")}
-                    />
-                    <FilterBadge
-                        label="Barra"
-                        isActive={chartType === "barra"}
-                        onPress={() => setChartType("barra")}
-                    />
-                    <FilterBadge
-                        label="Pizza"
-                        isActive={chartType === "pizza"}
-                        onPress={() => setChartType("pizza")}
-                    />
-                </View>
-            </View>
-
             <Text style={[styles.title, { color: colors.text }]}>
                 Consumo Tempo Real
             </Text>
-
-            {selectedPoint && (
-                <View
-                    style={[
-                        styles.selectedPointContainer,
-                        { backgroundColor: colors.surface },
-                    ]}
-                >
-                    <Text style={[styles.selectedPointText, { color: colors.text }]}>
-                        {selectedPoint.label}:{" "}
-                        <Text style={{ color: chartColor, fontWeight: "600" }}>
-                            {selectedPoint.value} kWh
-                        </Text>
-                    </Text>
-                    <TouchableOpacity onPress={() => setSelectedPoint(null)}>
-                        <Text style={[styles.closeButton, { color: colors.textSecondary }]}>
-                            ✕
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            {chartType === "linha" && (
-                <LineChart
-                    data={liveData}
-                    curved
-                    areaChart
-                    adjustToWidth={true}
-                    startFillColor={chartColor}
-                    endFillColor={chartColor}
-                    startOpacity={0.25}
-                    endOpacity={0.05}
-                    color={chartColor}
-
-                    initialSpacing={0}
-                    endSpacing={0}
-
-                    spacing={(screenWidth - 32) / (liveData.length - 1)}
-
-                    height={260}
-                    thickness={1}
-                    dataPointsHeight={12}
-                    dataPointsWidth={12}
-                    dataPointsColor={chartColor}
-                    hideRules
-                    xAxisLabelTextStyle={{
-                        color: colors.textSecondary,
-                        fontSize: 12,
-                    }}
-                    onPress={(item) => setSelectedPoint(item)}
-                />
-
-
-
-            )}
-
-            {chartType === "barra" && (
-                <BarChart
-                    data={liveData}
-                    barWidth={periodFilter === "dia" ? 20 : periodFilter === "semana" ? 28 : 25}
-                    spacing={spacingValue}
-                    barBorderRadius={6}
-                    frontColor={chartColor}
-                    height={220}
-                    xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: periodFilter === "dia" ? 10 : 12 }}
-                    onPress={(item) => setSelectedPoint(item)}
-                />
-            )}
-
-            {chartType === "pizza" && (
-                <View style={styles.pieChartContainer}>
-                    <PieChart
-                        data={liveData.map((d, index) => ({
-                            value: d.value,
-                            color: chartColor,
-                            text: d.label,
-                        }))}
-                        donut
-                        radius={90}
-                        textColor={colors.text}
-                        textSize={12}
-                        focusOnPress
-                        onPress={(item: any) => {
-                            const point = liveData.find(d => d.value === item.value);
-                            if (point) setSelectedPoint(point);
+            <View
+                style={[
+                    styles.chartFrame,
+                    {
+                        backgroundColor: colors.surface,
+                        borderColor: gridColor,
+                    },
+                ]}
+            >
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={false}>
+                    <BarChart
+                        data={liveData}
+                        barWidth={barWidthValue}
+                        spacing={spacingValue}
+                        initialSpacing={12}
+                        endSpacing={24}
+                        barBorderRadius={6}
+                        frontColor={chartColor}
+                        height={220}
+                        width={chartWidth}
+                        maxValue={30}
+                        noOfSections={6}
+                        yAxisLabelSuffix=""
+                        rulesColor={gridColor}
+                        rulesType="dashed"
+                        rulesThickness={1}
+                        yAxisColor={axisColor}
+                        xAxisColor={axisColor}
+                        xAxisThickness={1}
+                        yAxisThickness={1}
+                        yAxisLabelWidth={32}
+                        yAxisTextStyle={{ color: colors.textSecondary, fontSize: 11 }}
+                        xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 11 }}
+                        xAxisLabelsHeight={20}
+                        onPress={(item, index) => {
+                            setSelectedPoint({ ...item, index });
                         }}
                     />
-                </View>
-            )}
+                </ScrollView>
+            </View>
+            <View style={styles.averageContainer}>
+                <View style={[styles.averageCircle, { backgroundColor: colors.primary }]} />
+                <Text style={[styles.averageText, { color: colors.text }]}>
+                    Consumo Médio: {averageConsumption} kWh
+                </Text>
+            </View>
         </View>
     );
 }
@@ -273,7 +249,7 @@ export default function GraphicMeter() {
 const styles = StyleSheet.create({
     container: {
         borderRadius: 16,
-        padding: 16,
+        padding: 10,
         margin: 1,
         width: "100%",
     },
@@ -306,6 +282,14 @@ const styles = StyleSheet.create({
         marginTop: 8,
         marginBottom: 10,
     },
+    chartFrame: {
+        borderRadius: 12,
+        borderWidth: 1,
+        paddingTop: 12,
+        paddingBottom: 8,
+        paddingRight: 12,
+        overflow: "hidden",
+    },
     selectedPointContainer: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -325,5 +309,32 @@ const styles = StyleSheet.create({
     pieChartContainer: {
         alignItems: "center",
         marginVertical: 20,
+    },
+    tooltipContainer: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        borderWidth: 1,
+        marginBottom: 4,
+    },
+    tooltipText: {
+        fontSize: 12,
+        fontWeight: "600",
+    },
+    averageContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: 12,
+        paddingLeft: 4,
+    },
+    averageCircle: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 8,
+    },
+    averageText: {
+        fontSize: 13,
+        fontWeight: "500",
     },
 });

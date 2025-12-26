@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import Login from "./stacks/auth/login";
+import { useAuthContext } from "./context/AuthContext";
 
 export default function Index() {
   const [loaded] = useFonts({
@@ -10,23 +11,19 @@ export default function Index() {
   });
 
   const router = useRouter();
+  const { user, loading } = useAuthContext();
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || loading) return;
 
-    const timeout = setTimeout(() => {
-      const isLoggedIn = false;
+    // Se o usuário estiver logado, redireciona para home
+    if (user) {
+      router.replace("/tabs/home");
+    }
+  }, [loaded, loading, user, router]);
 
-      if (isLoggedIn) {
-        router.replace("/tabs/home");
-      }
-    }, 1000);
-
-    return () => clearTimeout(timeout);
-  }, [loaded, router]);
-
-  // 🔹 Enquanto a fonte carrega, mostra um loading simples
-  if (!loaded) {
+  // 🔹 Enquanto a fonte carrega ou está verificando autenticação, mostra um loading simples
+  if (!loaded || loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#00FF87" />
@@ -34,6 +31,11 @@ export default function Index() {
     );
   }
 
-  // 🔹 Mostra a tela de login por padrão (se não estiver logado)
-  return <Login />;
+  // 🔹 Se não estiver logado, mostra a tela de login
+  if (!user) {
+    return <Login />;
+  }
+
+  // 🔹 Se estiver logado, não mostra nada (será redirecionado)
+  return null;
 }

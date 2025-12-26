@@ -5,7 +5,15 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
-  register: (payload: { name?: string; email: string; password: string }) => Promise<User>;
+  register: (payload: { name?: string; email: string; password: string; address?: {
+    state: string;
+    city: string;
+    zipCode: string;
+    district: string;
+    street: string;
+    number: string;
+    complement?: string;
+  } }) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -32,7 +40,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return u;
   }, []);
 
-  const register = useCallback(async (payload: { name?: string; email: string; password: string }) => {
+  const register = useCallback(async (payload: { name?: string; email: string; password: string; address?: {
+    state: string;
+    city: string;
+    zipCode: string;
+    district: string;
+    street: string;
+    number: string;
+    complement?: string;
+  } }) => {
     const u = await authRegister(payload);
     setUser(u);
     return u;
