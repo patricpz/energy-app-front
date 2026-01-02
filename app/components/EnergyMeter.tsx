@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Animated, StyleSheet, Text, View, ActivityIndicator } from "react-native";
+import { Animated, StyleSheet, Text, View } from "react-native";
+import { usePulseCounter } from "../context/PulseCounterContext";
 import { useTheme } from "../context/ThemeContext";
+import useAuth from "../hooks/useAuth";
 import { useEnergyData } from "../hooks/useEnergyData";
 
 interface EnergyMeterProps {
@@ -10,8 +12,11 @@ interface EnergyMeterProps {
 const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
     const { theme } = useTheme();
     const { data, loading, error } = useEnergyData();
+    const { getEnergyValue, pulseCount } = usePulseCounter();
     const [blinkAnim] = useState(new Animated.Value(1));
     const [displayValue, setDisplayValue] = useState(0.0);
+    const { user, logout } = useAuth();
+    
     
     const colors = theme.colors;
     
@@ -23,25 +28,27 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
     const secondaryTextColor = theme.mode === "light" ? "#000000" : "#FFFFFF";
 
     // Smooth transition for the meter value
+    // Prioriza o valor do contador de pulsos, se disponível
     useEffect(() => {
-        if (data) {
-            const targetValue = parseFloat(data.currentUsage.toFixed(1));
-            const step = (targetValue - displayValue) / 10;
-            
-            const interval = setInterval(() => {
-                setDisplayValue(prev => {
-                    const newValue = prev + step;
-                    if (Math.abs(targetValue - newValue) < 0.1) {
-                        clearInterval(interval);
-                        return targetValue;
-                    }
-                    return parseFloat(newValue.toFixed(1));
-                });
-            }, 30);
-            
-            return () => clearInterval(interval);
-        }
-    }, [data?.currentUsage]);
+        const pulseValue = getEnergyValue();
+        const targetValue = pulseValue > 0 
+            ? parseFloat(pulseValue.toFixed(1))
+            : (data ? parseFloat(data.currentUsage.toFixed(1)) : 0);
+        
+        const interval = setInterval(() => {
+            setDisplayValue(prev => {
+                const step = (targetValue - prev) / 10;
+                const newValue = prev + step;
+                if (Math.abs(targetValue - newValue) < 0.1) {
+                    clearInterval(interval);
+                    return targetValue;
+                }
+                return parseFloat(newValue.toFixed(1));
+            });
+        }, 30);
+        
+        return () => clearInterval(interval);
+    }, [data?.currentUsage, pulseCount, getEnergyValue]);
 
     // Piscar o pulso vermelho quando ativo
     useEffect(() => {
@@ -74,7 +81,7 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
             }
         ]}>
             <Text style={[styles.title, { color: colors.text }]}>
-                MEDIDOR DE ENERGIA MONOFÁSICO
+                Residencia de {user?.name}
             </Text>
 
             {/* Display */}
@@ -88,13 +95,9 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
                     styles.displayText,
                     { color: displayTextColor }
                 ]}>
-                    {loading ? (
-                        <ActivityIndicator color={displayTextColor} />
-                    ) : error ? (
-                        <Text style={{ color: colors.error, fontSize: 16 }}>Erro ao carregar</Text>
-                    ) : (
+                    {
                         displayValue.toFixed(1).padStart(8, "0")
-                    )}
+                    }
                 </Text>
             </View>
 
