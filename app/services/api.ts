@@ -17,8 +17,15 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      // Não adicionar token em rotas de autenticação (login/register)
-      const isAuthRoute = config.url?.includes('/users/login') || config.url?.includes('/users') && config.method === 'post';
+      // Rotas que NÃO precisam de token (autenticação)
+      const url = config.url || '';
+      const method = config.method?.toLowerCase() || '';
+      
+      // Verifica se é rota de login ou registro (POST /users sem parâmetros)
+      const isLoginRoute = url === '/users/login' || url.includes('/users/login');
+      const isRegisterRoute = method === 'post' && url === '/users' && !url.includes('/users/');
+      
+      const isAuthRoute = isLoginRoute || isRegisterRoute;
       
       if (!isAuthRoute) {
         const userData = await AsyncStorage.getItem('@energyapp:currentUser');
@@ -26,8 +33,15 @@ api.interceptors.request.use(
           const user = JSON.parse(userData);
           if (user.token) {
             config.headers.Authorization = `Bearer ${user.token}`;
+            console.log('🔑 Token adicionado à requisição');
+          } else {
+            console.warn('⚠️ Usuário encontrado mas sem token');
           }
+        } else {
+          console.warn('⚠️ Nenhum usuário encontrado no storage');
         }
+      } else {
+        console.log('🔓 Rota de autenticação - token não será enviado');
       }
     } catch (error) {
       console.warn('Error getting token from storage:', error);
@@ -37,7 +51,7 @@ api.interceptors.request.use(
     console.log('🌐 API Request:', {
       method: config.method?.toUpperCase(),
       url: `${config.baseURL}${config.url}`,
-      headers: config.headers,
+      hasAuth: !!config.headers.Authorization,
       data: config.data ? (config.url?.includes('password') ? { ...config.data, password: '***' } : config.data) : undefined,
     });
     

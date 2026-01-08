@@ -57,20 +57,24 @@ export default function GraphicMeter() {
 
             switch (periodFilter) {
                 case "dia":
-                    // Buscar horas do dia atual
+                    // Buscar horas do dia atual usando a rota hierárquica
                     const hoursData = await getEnergyHours({
-                        year: currentYear,
-                        month: currentMonth,
-                        day: currentDay,
+                        yearId: currentYear,
+                        monthId: currentMonth,
+                        dayId: currentDay,
                     });
                     setApiData(hoursData);
                     break;
 
                 case "semana":
-                    // Buscar últimos 7 dias
+                    // Buscar últimos 7 dias usando a rota hierárquica
                     const weekAgo = new Date(now);
                     weekAgo.setDate(weekAgo.getDate() - 7);
+                    
+                    // Buscar dias do mês atual
                     const daysData = await getEnergyDays({
+                        yearId: currentYear,
+                        monthId: currentMonth,
                         startDate: weekAgo.toISOString().split('T')[0],
                         endDate: now.toISOString().split('T')[0],
                     });
@@ -78,9 +82,9 @@ export default function GraphicMeter() {
                     break;
 
                 case "mes":
-                    // Buscar meses do ano atual
+                    // Buscar meses do ano atual usando a rota hierárquica
                     const monthsData = await getEnergyMonths({
-                        year: currentYear,
+                        yearId: currentYear,
                     });
                     setApiData(monthsData);
                     break;
@@ -98,6 +102,18 @@ export default function GraphicMeter() {
     // Buscar dados quando o período mudar
     useEffect(() => {
         fetchData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [periodFilter]);
+
+    // Atualização automática em tempo real (a cada 30 segundos para consumo do dia)
+    useEffect(() => {
+        if (periodFilter === "dia") {
+            const interval = setInterval(() => {
+                fetchData();
+            }, 30000); // Atualiza a cada 30 segundos
+
+            return () => clearInterval(interval);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [periodFilter]);
 
@@ -132,7 +148,9 @@ export default function GraphicMeter() {
                 // Criar um mapa de hora -> consumo
                 const hourMap = new Map<number, number>();
                 hoursData.forEach((item) => {
-                    hourMap.set(item.hour, item.consumption);
+                    // Usar consumption se disponível, senão usar totalConsumption ou averageConsumption
+                    const consumptionValue = item.consumption || (item as any).totalConsumption || (item as any).averageConsumption || 0;
+                    hourMap.set(item.hour, consumptionValue);
                 });
                 
                 return horasDia.map((hora, index) => {

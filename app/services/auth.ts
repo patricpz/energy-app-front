@@ -43,11 +43,30 @@ export async function login(email: string, password: string): Promise<User> {
 
     const { user, token } = response.data;
 
+    console.log('📥 Login Response - Dados recebidos:', {
+      user: user ? { ...user, password: undefined } : null,
+      hasToken: !!token,
+      userId: user?.id,
+      userKeys: user ? Object.keys(user) : [],
+    });
+
+    // Verificar se o ID está em outro campo (algumas APIs usam _id)
+    if (user && !user.id && (user as any)._id) {
+      console.log('⚠️ Login - ID encontrado como _id, convertendo...');
+      user.id = (user as any)._id;
+    }
+
     // Criar objeto de usuário com token
     const userWithToken: User = {
       ...user,
       token,
     };
+
+    console.log('💾 Login - Salvando no storage:', {
+      id: userWithToken.id,
+      email: userWithToken.email,
+      hasToken: !!userWithToken.token,
+    });
 
     // Salvar no AsyncStorage
     await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(userWithToken));
@@ -137,11 +156,30 @@ export async function register(userData: {
       token = (response.data as any).token || '';
     }
 
+    console.log('📥 Register Response - Dados recebidos:', {
+      userFromResponse: userFromResponse ? { ...userFromResponse, password: undefined } : null,
+      hasToken: !!token,
+      userId: userFromResponse?.id,
+      userKeys: userFromResponse ? Object.keys(userFromResponse) : [],
+    });
+
+    // Verificar se o ID está em outro campo (algumas APIs usam _id)
+    if (!userFromResponse.id && (userFromResponse as any)._id) {
+      console.log('⚠️ Register - ID encontrado como _id, convertendo...');
+      userFromResponse.id = (userFromResponse as any)._id;
+    }
+
     // Criar objeto de usuário com token
     const userWithToken: User = {
       ...userFromResponse,
       token,
     };
+
+    console.log('💾 Register - Salvando no storage:', {
+      id: userWithToken.id,
+      email: userWithToken.email,
+      hasToken: !!userWithToken.token,
+    });
 
     // Salvar no AsyncStorage
     await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(userWithToken));
@@ -205,18 +243,36 @@ export async function logout(): Promise<void> {
 export async function getCurrentUser(): Promise<User | null> {
   try {
     const raw = await AsyncStorage.getItem(AUTH_KEY);
-    if (!raw) return null;
+    if (!raw) {
+      console.log('⚠️ getCurrentUser - Nenhum dado encontrado no storage');
+      return null;
+    }
+    
     const user = JSON.parse(raw) as User;
+    
+    console.log('📦 getCurrentUser - Dados recuperados:', {
+      hasId: !!user.id,
+      id: user.id,
+      email: user.email,
+      hasToken: !!user.token,
+      tokenLength: user.token?.length,
+    });
     
     // Verificar se o token existe
     if (!user.token) {
+      console.warn('⚠️ getCurrentUser - Usuário sem token, removendo do storage');
       await AsyncStorage.removeItem(AUTH_KEY);
       return null;
     }
     
+    // Verificar se o ID existe
+    if (!user.id) {
+      console.warn('⚠️ getCurrentUser - Usuário sem ID:', user);
+    }
+    
     return user;
   } catch (err) {
-    console.warn('auth:getCurrentUser error', err);
+    console.error('❌ getCurrentUser error:', err);
     await AsyncStorage.removeItem(AUTH_KEY);
     return null;
   }

@@ -1,11 +1,11 @@
 import { XIcon } from "phosphor-react-native";
 import React from "react";
 import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Modal,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { useTheme } from "../context/ThemeContext";
 
@@ -51,7 +51,9 @@ export default function ModalGlobal({
           </View>
 
           {/* CONTENT */}
-          <View style={styles.content}>{children}</View>
+          <View style={styles.content} pointerEvents="box-none">
+            {children}
+          </View>
         </View>
       </View>
     </Modal>
@@ -68,10 +70,14 @@ const styles = StyleSheet.create({
   },
 
   modalContainer: {
-    width: "100%",
+    width: "95%",
+    maxWidth: 600,
+    height: "85%",
+    maxHeight: "90%",
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
+    overflow: "hidden",
   },
 
   header: {
@@ -88,5 +94,6 @@ const styles = StyleSheet.create({
 
   content: {
     marginTop: 4,
+    flex: 1,
   },
 });

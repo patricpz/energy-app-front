@@ -12,6 +12,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import ModalBLEConnection from "../components/ModalBLEConnection";
 import { useTheme } from "../context/ThemeContext";
 
 export default function Profile() {
@@ -189,6 +190,11 @@ export default function Profile() {
                     <Text style={[styles.signOutText, { color: theme.colors.error }]}>Sair</Text>
                 </TouchableOpacity>
             </ScrollView>
+
+            <ModalBLEConnection
+                visible={modalVisible}
+                onClose={() => setModalVisible(false)}
+            />
         </SafeAreaView>
     );
 }

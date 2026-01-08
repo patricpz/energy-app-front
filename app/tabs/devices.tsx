@@ -1,114 +1,328 @@
 import {
   DesktopIcon,
+  DeviceMobileIcon,
   FanIcon,
-  IceCreamIcon,
+  LightbulbIcon,
   PlusIcon,
+  SnowflakeIcon,
   TelevisionSimpleIcon,
+  ThermometerIcon,
+  TrashIcon,
   WashingMachineIcon
 } from 'phosphor-react-native';
 
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Header from '../components/Header';
 import ModalAddDevice from '../components/ModalAddDevice';
 import { useTheme } from '../context/ThemeContext';
 import SafeScreen from '../SafeScreen';
+import { deleteDevice, DomesticEquipment, getDevices } from '../services/devices';
+
+type FilterType = 'todos' | 'ligados' | 'desligados';
+
+// Função para selecionar ícone baseado no nome do dispositivo
+function getDeviceIcon(name: string) {
+  const nameLower = name.toLowerCase();
+  
+  if (nameLower.includes('tv') || nameLower.includes('televisão') || nameLower.includes('televisao')) {
+    return (color: string, size: number) => <TelevisionSimpleIcon color={color} size={size} weight="duotone" />;
+  }
+  if (nameLower.includes('geladeira') || nameLower.includes('refrigerador') || nameLower.includes('fridge')) {
+    return (color: string, size: number) => <SnowflakeIcon color={color} size={size} weight="duotone" />;
+  }
+  if (nameLower.includes('ar') || nameLower.includes('ac') || nameLower.includes('condicionado') || nameLower.includes('climatizador')) {
+    return (color: string, size: number) => <ThermometerIcon color={color} size={size} weight="duotone" />;
+  }
+  if (nameLower.includes('pc') || nameLower.includes('computador') || nameLower.includes('notebook') || nameLower.includes('laptop')) {
+    return (color: string, size: number) => <DesktopIcon color={color} size={size} weight="duotone" />;
+  }
+  if (nameLower.includes('lavar') || nameLower.includes('lavadora') || nameLower.includes('maquina')) {
+    return (color: string, size: number) => <WashingMachineIcon color={color} size={size} weight="duotone" />;
+  }
+  if (nameLower.includes('luz') || nameLower.includes('lâmpada') || nameLower.includes('lampada') || nameLower.includes('light')) {
+    return (color: string, size: number) => <LightbulbIcon color={color} size={size} weight="duotone" />;
+  }
+  if (nameLower.includes('ventilador') || nameLower.includes('fan')) {
+    return (color: string, size: number) => <FanIcon color={color} size={size} weight="duotone" />;
+  }
+  
+  // Ícone padrão
+  return (color: string, size: number) => <DeviceMobileIcon color={color} size={size} weight="duotone" />;
+}
+
+// Converter dados da API para o formato da interface
+function mapApiDeviceToDevice(apiDevice: DomesticEquipment): Device {
+  return {
+    id: apiDevice.id || '',
+    name: apiDevice.name,
+    icon: getDeviceIcon(apiDevice.name),
+    consumption: apiDevice.consumeKwh,
+    online: true, // Por padrão, assumimos que está online (pode ser ajustado quando houver integração com status real)
+    active: true, // Por padrão, assumimos que está ativo (pode ser ajustado quando houver integração com status real)
+  };
+}
 
 export default function Devices() {
   const { theme } = useTheme();
-
   const [modalVisible, setModalVisible] = useState(false);
+  const [filter, setFilter] = useState<FilterType>('todos');
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const devices: Device[] = [
-    {
-      id: 1,
-      name: 'TV da sala de estar',
-      icon: (color, size) => <TelevisionSimpleIcon color={color} size={size} weight="duotone" />,
-      consumption: '0.15 kWh',
-      online: true,
-      active: true
-    },
-    {
-      id: 2,
-      name: 'Geladeira de cozinha',
-      icon: (color, size) => <FanIcon color={color} size={size} weight="duotone" />,
-      consumption: '0.45 kWh',
-      online: true,
-      active: true
-    },
-    {
-      id: 3,
-      name: 'Quarto AC',
-      icon: (color, size) => <IceCreamIcon color={color} size={size} weight="duotone" />,
-      consumption: '1.2 kWh',
-      online: false,
-      active: false
-    },
-    {
-      id: 4,
-      name: 'Pc escritório',
-      icon: (color, size) => <DesktopIcon color={color} size={size} weight="duotone" />,
-      consumption: '0.25 kWh',
-      online: true,
-      active: true
-    },
-    {
-      id: 5,
-      name: 'Máquina de lavar',
-      icon: (color, size) => <WashingMachineIcon color={color} size={size} weight="duotone" />,
-      consumption: '0.8 kWh',
-      online: false,
-      active: false
-    },
-  ];
+  // Carregar dispositivos da API
+  const loadDevices = async () => {
+    try {
+      setLoading(true);
+      const apiDevices = await getDevices();
+      const mappedDevices = apiDevices.map(mapApiDeviceToDevice);
+      setDevices(mappedDevices);
+    } catch (error: any) {
+      console.error('Erro ao carregar dispositivos:', error);
+      Alert.alert(
+        'Erro',
+        error.message || 'Não foi possível carregar os dispositivos. Tente novamente.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  function handleSaveDevice(device: any) {
-    console.log("Novo Equipamento: ", device);
+  // Carregar dispositivos ao montar o componente
+  useEffect(() => {
+    loadDevices();
+  }, []);
+
+  // Calcular estatísticas
+  const activeDevices = devices.filter(d => d.active).length;
+  const totalDevices = devices.length;
+  const currentConsumption = devices
+    .filter(d => d.active)
+    .reduce((sum, d) => sum + d.consumption, 0);
+
+  // Filtrar dispositivos
+  const filteredDevices = devices.filter(device => {
+    if (filter === 'ligados') return device.active;
+    if (filter === 'desligados') return !device.active;
+    return true;
+  });
+
+  async function handleSaveDevice() {
+    // Recarregar lista após salvar
+    await loadDevices();
   }
+
+  async function handleDeleteDevice(deviceId: string | number) {
+    const idString = String(deviceId);
+    
+    Alert.alert(
+      'Confirmar exclusão',
+      'Tem certeza que deseja excluir este dispositivo?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeletingId(idString);
+              await deleteDevice(idString);
+              Alert.alert('Sucesso', 'Dispositivo excluído com sucesso!');
+              // Recarregar lista após deletar
+              await loadDevices();
+            } catch (error: any) {
+              console.error('Erro ao deletar dispositivo:', error);
+              Alert.alert(
+                'Erro',
+                error.message || 'Não foi possível excluir o dispositivo. Tente novamente.'
+              );
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  const colors = theme.colors;
 
   return (
     <SafeScreen>
       <View style={[styles(theme).container]}>
         <Header />
 
-        {/* HEADER + BOTÃO */}
-        <View style={styles(theme).headerRow}>
-          <Text style={styles(theme).title}>Dispositivos</Text>
-
-          <TouchableOpacity onPress={() => setModalVisible(true)}>
-            <PlusIcon size={34} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={{ marginTop: 16 }}>
-          {devices.map((device) => (
-            <View key={device.id} style={styles(theme).card}>
-              <View style={styles(theme).infoRow}>
-
-                {/* Ícone */}
-                <View style={{ marginRight: 14 }}>
-                  {device.icon(theme.colors.text, 40)}
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={styles(theme).deviceName}>{device.name}</Text>
-                  <Text style={styles(theme).consumption}>
-                    Consumo: <Text style={{ color: '#4CAF50' }}>{device.consumption}</Text>
-                  </Text>
-                  <Text
-                    style={[
-                      styles(theme).status,
-                      { color: device.online ? '#4CAF50' : '#F44336' }
-                    ]}
-                  >
-                    • {device.online ? 'Online' : 'Offline'}
-                  </Text>
-                </View>
-
-                {/* <Switch value={device.active} trackColor={{ true: theme.colors.primary }} /> */}
-              </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* HEADER + BOTÃO */}
+          <View style={styles(theme).headerRow}>
+            <View style={styles(theme).titleContainer}>
+              <Text style={styles(theme).title}>Dispositivos</Text>
             </View>
-          ))}
+            <TouchableOpacity onPress={() => setModalVisible(true)}>
+              <PlusIcon size={28} color={colors.primary} weight="bold" />
+            </TouchableOpacity>
+          </View>
+
+          {/* CARDS DE RESUMO */}
+          <View style={styles(theme).summaryCards}>
+            <View style={[styles(theme).summaryCard, { backgroundColor: colors.card, marginRight: 6 }]}>
+              <Text style={[styles(theme).summaryValue, { color: colors.primary }]}>
+                {activeDevices}
+              </Text>
+              <Text style={[styles(theme).summaryLabel, { color: colors.textSecondary }]}>
+                Ligados
+              </Text>
+            </View>
+            <View style={[styles(theme).summaryCard, { backgroundColor: colors.card, marginHorizontal: 6 }]}>
+              <Text style={[styles(theme).summaryValue, { color: colors.primary }]}>
+                {currentConsumption.toFixed(1)}
+              </Text>
+              <Text style={[styles(theme).summaryLabel, { color: colors.textSecondary }]}>
+                kWh Agora
+              </Text>
+            </View>
+            <View style={[styles(theme).summaryCard, { backgroundColor: colors.card, marginLeft: 6 }]}>
+              <Text style={[styles(theme).summaryValue, { color: colors.primary }]}>
+                {totalDevices}
+              </Text>
+              <Text style={[styles(theme).summaryLabel, { color: colors.textSecondary }]}>
+                Total
+              </Text>
+            </View>
+          </View>
+
+          {/* FILTROS */}
+          <View style={styles(theme).filtersContainer}>
+            <TouchableOpacity
+              style={[
+                styles(theme).filterButton,
+                filter === 'todos' && styles(theme).filterButtonActive,
+                { backgroundColor: filter === 'todos' ? colors.primary : colors.card, marginRight: 6 }
+              ]}
+              onPress={() => setFilter('todos')}
+            >
+              <Text
+                style={[
+                  styles(theme).filterText,
+                  { color: filter === 'todos' ? colors.buttonText : colors.textSecondary }
+                ]}
+              >
+                Todos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles(theme).filterButton,
+                filter === 'ligados' && styles(theme).filterButtonActive,
+                { backgroundColor: filter === 'ligados' ? colors.primary : colors.card, marginHorizontal: 6 }
+              ]}
+              onPress={() => setFilter('ligados')}
+            >
+              <Text
+                style={[
+                  styles(theme).filterText,
+                  { color: filter === 'ligados' ? colors.buttonText : colors.textSecondary }
+                ]}
+              >
+                Ligados
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles(theme).filterButton,
+                filter === 'desligados' && styles(theme).filterButtonActive,
+                { backgroundColor: filter === 'desligados' ? colors.primary : colors.card, marginLeft: 6 }
+              ]}
+              onPress={() => setFilter('desligados')}
+            >
+              <Text
+                style={[
+                  styles(theme).filterText,
+                  { color: filter === 'desligados' ? colors.buttonText : colors.textSecondary }
+                ]}
+              >
+                Desligados
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* LISTA DE DISPOSITIVOS */}
+          <View style={styles(theme).devicesList}>
+            {loading ? (
+              <View style={styles(theme).loadingContainer}>
+                <Text style={[styles(theme).loadingText, { color: colors.textSecondary }]}>
+                  Carregando dispositivos...
+                </Text>
+              </View>
+            ) : filteredDevices.length === 0 ? (
+              <View style={styles(theme).emptyContainer}>
+                <Text style={[styles(theme).emptyText, { color: colors.textSecondary }]}>
+                  {devices.length === 0 
+                    ? 'Nenhum dispositivo cadastrado. Adicione um novo dispositivo!'
+                    : 'Nenhum dispositivo encontrado com este filtro.'}
+                </Text>
+              </View>
+            ) : (
+              filteredDevices.map((device) => (
+                <View key={device.id} style={[styles(theme).deviceCard, { backgroundColor: colors.card }]}>
+                  <View style={styles(theme).deviceInfoRow}>
+                    {/* Ícone */}
+                    <View style={styles(theme).deviceIconContainer}>
+                      {device.icon(colors.text, 32)}
+                    </View>
+
+                    {/* Informações */}
+                    <View style={styles(theme).deviceInfo}>
+                      <Text style={[styles(theme).deviceName, { color: colors.text }]}>
+                        {device.name}
+                      </Text>
+                      <View style={styles(theme).consumptionRow}>
+                        <Text style={[styles(theme).consumptionLabel, { color: colors.textSecondary }]}>
+                          Consumo
+                        </Text>
+                        <Text style={[styles(theme).consumptionValue, { color: colors.primary, marginLeft: 6 }]}>
+                          {device.consumption} kWh
+                        </Text>
+                      </View>
+                      <View style={styles(theme).statusRow}>
+                        <View
+                          style={[
+                            styles(theme).statusDot,
+                            { backgroundColor: device.online ? colors.primary : colors.textTertiary, marginRight: 6 }
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles(theme).statusText,
+                            { color: device.online ? colors.primary : colors.textTertiary }
+                          ]}
+                        >
+                          {device.online ? 'Ligado' : 'Desligado'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Botão de deletar */}
+                    <TouchableOpacity
+                      onPress={() => handleDeleteDevice(device.id)}
+                      style={styles(theme).deleteButton}
+                      disabled={deletingId === String(device.id)}
+                    >
+                      <TrashIcon 
+                        size={20} 
+                        color={deletingId === String(device.id) ? colors.textTertiary : colors.textSecondary} 
+                        weight="regular" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
         </ScrollView>
 
         {/* MODAL */}
@@ -124,10 +338,10 @@ export default function Devices() {
 }
 
 interface Device {
-  id: number;
+  id: string | number;
   name: string;
   icon: (color: string, size: number) => React.ReactNode;
-  consumption: string;
+  consumption: number;
   online: boolean;
   active: boolean;
 }
@@ -136,48 +350,170 @@ const styles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    padding: 10,
   },
 
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 
   title: {
-    fontSize: 26,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '700',
     color: theme.colors.text,
   },
 
-  card: {
-    backgroundColor: theme.colors.card,
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 14,
+  summaryCards: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
 
-  infoRow: {
+  summaryCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  summaryValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  filtersContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+
+  filterButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  filterButtonActive: {
+    // Estilo adicional se necessário
+  },
+
+  filterText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  devicesList: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+
+  deviceCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  deviceInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
 
+  deviceIconContainer: {
+    marginRight: 14,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  deviceInfo: {
+    flex: 1,
+  },
+
   deviceName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
   },
 
-  consumption: {
-    marginTop: 4,
-    fontSize: 14,
-    color: theme.colors.textSecondary,
+  consumptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
   },
 
-  status: {
-    marginTop: 2,
+  consumptionLabel: {
+    fontSize: 13,
+    fontWeight: '400',
+  },
+
+  consumptionValue: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  statusText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  deleteButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  loadingText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  emptyText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
