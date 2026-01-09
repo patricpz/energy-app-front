@@ -1,646 +1,641 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
+    Button,
+    PermissionsAndroid,
+    Platform,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     TouchableOpacity,
-    View
-} from "react-native";
-import Header from "../components/Header";
-import { useTheme } from "../context/ThemeContext";
-import SafeScreen from "../SafeScreen";
-import bleService, { BLEConnectionStatus, BLEDevice } from "../services/blePLXService";
+    View,
+} from 'react-native';
 
-export default function Analisty() {
-    const { theme } = useTheme();
-    const [status, setStatus] = useState<BLEConnectionStatus>('desconectado');
-    const [devices, setDevices] = useState<BLEDevice[]>([]);
-    const [connectedDeviceId, setConnectedDeviceId] = useState<string | null>(null);
+import base64 from 'react-native-base64';
+
+import { LogBox } from 'react-native';
+import { BleManager, Device } from 'react-native-ble-plx';
+
+LogBox.ignoreLogs(['new NativeEventEmitter']); // Ignore log notification by message
+LogBox.ignoreAllLogs(); //Ignore all log notifications
+
+const BLTManager = new BleManager();
+
+const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+
+const MESSAGE_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+const BOX_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a9';
+
+function StringToBool(input: string) {
+    if (input == '1') {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function BoolToString(input: boolean) {
+    if (input == true) {
+        return '1';
+    } else {
+        return '0';
+    }
+}
+
+export default function App() {
+    //Is a device connected?
+    const [isConnected, setIsConnected] = useState(false);
+
+    //What device is connected?
+    const [connectedDevice, setConnectedDevice] = useState<Device>();
+
+    const [message, setMessage] = useState('Nothing Yet');
+    const [boxvalue, setBoxValue] = useState(false);
     const [wifiSSID, setWifiSSID] = useState('');
     const [wifiPassword, setWifiPassword] = useState('');
-    const [logs, setLogs] = useState<string[]>([]);
+    const [dispositivos, setDispositivos] = useState<Device[]>([]);
     const [isScanning, setIsScanning] = useState(false);
 
-    // Adicionar log
-    const addLog = (message: string) => {
-        const timestamp = new Date().toLocaleTimeString();
-        const logMessage = `[${timestamp}] ${message}`;
-        console.log(logMessage);
-        setLogs((prev) => [logMessage, ...prev].slice(0, 30));
-    };
+    // Request Android permissions (including Android 12+)
+    async function requestPermissions() {
+        if (Platform.OS !== 'android') {
+            return true;
+        }
 
-    // Inicializar BLE quando o componente montar
-    useEffect(() => {
-        initializeBLE();
-        return () => {
-            cleanupBLE();
-        };
-    }, []);
+        if (Platform.Version >= 31) {
+            // Android 12+ (API 31+) requires additional permissions
+            const result = await PermissionsAndroid.requestMultiple([
+                PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+                PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+                PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            ]);
 
-    const initializeBLE = async () => {
-        try {
-            addLog('🔧 Inicializando BLE...');
-            setStatus('inicializando');
+            const granted = Object.values(result).every(
+                (value) => value === PermissionsAndroid.RESULTS.GRANTED,
+            );
 
-            // Inicializar BleManager
-            const initialized = await bleService.initialize();
-            if (!initialized) {
-                throw new Error('Falha ao inicializar BleManager');
+            if (!granted) {
+                console.warn('Permissões de Bluetooth negadas');
+                return false;
             }
 
-            // Configurar callback para receber dados do ESP32
-            bleService.setOnDataReceived((data: string, json?: any) => {
-                addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                addLog('📥 DADOS RECEBIDOS DO ESP32');
-                addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                addLog(`📥 Dados: ${data}`);
-                
-                if (json) {
-                    addLog(`📥 JSON: ${JSON.stringify(json)}`);
-                    
-                    // Resposta automática baseada no comando recebido
-                    handleAutomaticResponse(json);
-                } else {
-                    // Se não for JSON, apenas log
-                    addLog('📥 Dados recebidos (não é JSON)');
-                }
-            });
+            return granted;
+        } else {
+            // Android 11 and below
+            const result = await PermissionsAndroid.request(
+                PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+                {
+                    title: 'Permission Localisation Bluetooth',
+                    message: 'Requirement for Bluetooth',
+                    buttonNeutral: 'Later',
+                    buttonNegative: 'Cancel',
+                    buttonPositive: 'OK',
+                },
+            );
 
-            addLog('✅ BLE inicializado com sucesso');
-            addLog('✅ Callback de recebimento configurado');
-            setStatus('desconectado');
-        } catch (error: any) {
-            addLog(`❌ Erro ao inicializar: ${error?.message || 'Erro desconhecido'}`);
-            setStatus('erro');
-            Alert.alert('Erro', `Falha ao inicializar BLE: ${error?.message || 'Erro desconhecido'}`);
+            return result === PermissionsAndroid.RESULTS.GRANTED;
         }
-    };
+    }
 
-    // Função para resposta automática quando receber dados do ESP32
-    const handleAutomaticResponse = async (json: any) => {
-        try {
-            if (!bleService.isConnected()) {
+    // Scans availbale BLT Devices and then call connectDevice
+    async function scanDevices() {
+        const hasPermission = await requestPermissions();
+        if (!hasPermission) {
+            console.warn('Permissões necessárias não foram concedidas');
+            setMessage('Permissões negadas');
+            return;
+        }
+
+        setDispositivos([]);
+        setIsScanning(true);
+        setMessage('Escaneando dispositivos...');
+        console.log('Iniciando scan de dispositivos BLE...');
+
+        BLTManager.startDeviceScan(null, null, (error, scannedDevice) => {
+            if (error) {
+                console.warn('Erro ao escanear:', error);
+                setMessage(`Erro: ${error.message}`);
+                setIsScanning(false);
+                BLTManager.stopDeviceScan();
                 return;
             }
 
-            // Exemplo: Se ESP32 enviar um comando, responder automaticamente
-            if (json.cmd === 4) {
-                // ESP32 pediu lista de WiFis - podemos enviar uma resposta
-                addLog('📤 Resposta automática: Lista de WiFis solicitada');
-            } else if (json.status === 'ok') {
-                // ESP32 confirmou recebimento - podemos enviar próximo comando
-                addLog('📤 ESP32 confirmou recebimento');
-            } else if (json.error) {
-                // ESP32 reportou erro
-                addLog(`⚠️ ESP32 reportou erro: ${json.error}`);
-            }
-        } catch (error: any) {
-            console.error('Erro na resposta automática:', error?.message || 'Erro desconhecido');
-        }
-    };
+            if (!scannedDevice) return;
 
-    const cleanupBLE = async () => {
-        try {
-            await bleService.cleanup();
-            addLog('🧹 Recursos BLE limpos');
-        } catch (error: any) {
-            console.error('Erro ao limpar recursos:', error);
-        }
-    };
-
-    const startScan = async () => {
-        try {
-            addLog('🔍 Iniciando scan de dispositivos BLE...');
-            setStatus('escaneando');
-            setIsScanning(true);
-            setDevices([]);
-
-            await bleService.startScan((device) => {
-                setDevices((prev) => {
-                    const exists = prev.some((d) => d.id === device.id);
-                    if (exists) return prev;
-                    
-                    // Log especial se for o ESP32 esperado
-                    if (device.name && device.name.toLowerCase().includes('esp32')) {
-                        addLog(`🔍 ESP32 encontrado: ${device.name} (${device.id.substring(0, 8)}...)`);
-                    } else {
-                        addLog(`🔍 Dispositivo encontrado: ${device.name} (${device.id.substring(0, 8)}...)`);
-                    }
-                    
-                    return [...prev, device];
-                });
+            // Log do dispositivo encontrado
+            console.log('Dispositivo encontrado:', {
+                id: scannedDevice.id,
+                name: scannedDevice.name || '(sem nome)',
+                rssi: scannedDevice.rssi,
+                isConnectable: scannedDevice.isConnectable,
             });
 
-            // Parar scan automaticamente após 10 segundos
-            setTimeout(() => {
-                bleService.stopScan();
-                setStatus('desconectado');
+            // Adicionar à lista de dispositivos (evitar duplicatas)
+            setDispositivos((prev) => {
+                const existe = prev.some((d) => d.id === scannedDevice.id);
+                if (existe) return prev;
+                return [scannedDevice, ...prev];
+            });
+
+            // Tentar conectar automaticamente se encontrar dispositivo com nome específico
+            // ou se encontrar pelo UUID do serviço
+            if (scannedDevice.name === 'BLEExample' || scannedDevice.name?.includes('ESP')) {
+                console.log('Dispositivo ESP encontrado, conectando...');
+                BLTManager.stopDeviceScan();
                 setIsScanning(false);
-                addLog('✅ Scan finalizado');
-            }, 10000);
-        } catch (error: any) {
-            addLog(`❌ Erro no scan: ${error.message}`);
-            setStatus('erro');
+                connectDevice(scannedDevice);
+            }
+        });
+
+        // stop scanning devices after 10 seconds
+        setTimeout(() => {
+            BLTManager.stopDeviceScan();
             setIsScanning(false);
-            Alert.alert('Erro', `Falha ao escanear: ${error.message}`);
+            if (dispositivos.length === 0) {
+                setMessage('Nenhum dispositivo encontrado. Tente novamente.');
+            } else {
+                setMessage(`${dispositivos.length} dispositivo(s) encontrado(s). Toque para conectar.`);
+            }
+            console.log('Scan finalizado. Dispositivos encontrados:', dispositivos.length);
+        }, 10000);
+    }
+
+    // handle the device disconnection (poorly)
+    async function disconnectDevice() {
+        console.log('Disconnecting start');
+
+        if (connectedDevice != null) {
+            const isDeviceConnected = await connectedDevice.isConnected();
+            if (isDeviceConnected) {
+                BLTManager.cancelTransaction('messagetransaction');
+                BLTManager.cancelTransaction('nightmodetransaction');
+
+                BLTManager.cancelDeviceConnection(connectedDevice.id).then(() =>
+                    console.log('DC completed'),
+                );
+            }
+
+            const connectionStatus = await connectedDevice.isConnected();
+            if (!connectionStatus) {
+                setIsConnected(false);
+            }
         }
-    };
+    }
 
-    const stopScan = () => {
-        try {
-            bleService.stopScan();
-            setStatus('desconectado');
-            setIsScanning(false);
-            addLog('⏹️ Scan parado manualmente');
-        } catch (error: any) {
-            addLog(`❌ Erro ao parar scan: ${error?.message || 'Erro desconhecido'}`);
-        }
-    };
-
-    const connectToDevice = async (deviceId: string) => {
-        try {
-            addLog(`🔌 Conectando ao dispositivo ${deviceId.substring(0, 8)}...`);
-            setStatus('conectando');
-
-            await bleService.connect(deviceId);
-            setConnectedDeviceId(deviceId);
-            setStatus('conectado');
-            addLog('✅ Conectado com sucesso!');
-            addLog('✅ Serviços descobertos e prontos para envio');
-        } catch (error: any) {
-            const errorMessage = error?.message || String(error);
-            addLog(`❌ Erro ao conectar: ${errorMessage}`);
-            console.error('Erro completo:', error);
-            setStatus('erro');
-            Alert.alert('Erro de Conexão', `Falha ao conectar ao dispositivo:\n\n${errorMessage}\n\nVerifique:\n- Se o dispositivo está próximo\n- Se o Bluetooth está ligado\n- Se os UUIDs estão corretos`);
-        }
-    };
-
-    const disconnect = async () => {
-        try {
-            await bleService.disconnect();
-            setConnectedDeviceId(null);
-            setStatus('desconectado');
-            addLog('🔌 Desconectado');
-        } catch (error: any) {
-            addLog(`❌ Erro ao desconectar: ${error.message}`);
-        }
-    };
-
-    const sendWiFiCredentials = async () => {
-        if (!wifiSSID.trim() || !wifiPassword.trim()) {
-            Alert.alert('Atenção', 'Preencha o SSID e a senha do WiFi');
+    //Function to send data to ESP32
+    async function sendBoxValue(value: boolean) {
+        if (!connectedDevice) {
+            console.warn('No device connected');
             return;
         }
 
-        if (!bleService.isConnected()) {
-            Alert.alert('Atenção', 'Conecte-se a um dispositivo primeiro');
+        // Verificar permissões antes de enviar (especialmente importante no Android 12+)
+        if (Platform.OS === 'android' && Platform.Version >= 31) {
+            const hasPermission = await requestPermissions();
+            if (!hasPermission) {
+                console.warn('Permissões necessárias não foram concedidas para enviar dados');
+                return;
+            }
+        }
+
+        // Verificar se o dispositivo está realmente conectado
+        try {
+            const isConnected = await connectedDevice.isConnected();
+            if (!isConnected) {
+                console.warn('Device is not connected');
+                setIsConnected(false);
+                return;
+            }
+        } catch (error) {
+            console.warn('Error checking connection:', error);
+            setIsConnected(false);
             return;
         }
 
+        // Criar JSON com cmd: 5, ssid e password
+        const jsonData = JSON.stringify({
+            cmd: 5,
+            ssid: wifiSSID || '',
+            password: wifiPassword || '',
+        });
+
+        const encodedValue = base64.encode(jsonData);
+
+        console.log('Enviando JSON:', jsonData, 'Encoded:', encodedValue);
+
         try {
-            addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            addLog('📤 ENVIANDO CREDENCIAIS WiFi');
-            addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            addLog(`📤 SSID: ${wifiSSID.trim()}`);
-            addLog(`📤 Password: ${'*'.repeat(wifiPassword.length)}`);
-            addLog(`📤 JSON: {"ssid":"${wifiSSID.trim()}","password":"${wifiPassword.trim()}"}`);
+            // Primeiro, tentar descobrir as características para verificar permissões
+            const services = await connectedDevice.services();
+            const targetService = services.find(s => s.uuid.toLowerCase() === SERVICE_UUID.toLowerCase());
 
-            await bleService.configureWiFi(wifiSSID.trim(), wifiPassword.trim());
+            if (!targetService) {
+                console.error('Service não encontrado:', SERVICE_UUID);
+                return;
+            }
 
-            addLog('✅ Credenciais WiFi enviadas com sucesso!');
-            addLog('✅ Verifique o ESP32 para confirmar recebimento');
-            Alert.alert('Sucesso', 'Credenciais WiFi enviadas para o ESP32!\n\nVerifique o ESP32 para confirmar.');
-        } catch (error: any) {
-            const errorMessage = error?.message || String(error);
-            addLog(`❌ Erro ao enviar: ${errorMessage}`);
-            console.error('Erro completo ao enviar:', error);
-            Alert.alert(
-                'Erro ao Enviar', 
-                `Falha ao enviar credenciais:\n\n${errorMessage}\n\nVerifique:\n- Se está conectado ao dispositivo\n- Se os UUIDs estão corretos\n- Se o ESP32 está pronto para receber`
+            const characteristics = await targetService.characteristics();
+            
+            // Listar todas as características disponíveis para debug
+            console.log('Características disponíveis:');
+            characteristics.forEach((char) => {
+                console.log(`- UUID: ${char.uuid}, WritableWithResponse: ${char.isWritableWithResponse}, WritableWithoutResponse: ${char.isWritableWithoutResponse}`);
+            });
+
+            // Tentar encontrar a característica BOX_UUID primeiro
+            let targetCharacteristic = characteristics.find(
+                c => c.uuid.toLowerCase() === BOX_UUID.toLowerCase()
             );
-        }
-    };
 
-    const getStatusColor = () => {
-        switch (status) {
-            case 'conectado':
-                return theme.colors.success;
-            case 'conectando':
-            case 'escaneando':
-            case 'inicializando':
-                return theme.colors.warning;
-            case 'erro':
-                return theme.colors.error;
-            default:
-                return theme.colors.textSecondary;
+            // Se não encontrar BOX_UUID, tentar usar MESSAGE_UUID (TX) como alternativa
+            if (!targetCharacteristic) {
+                console.warn(`Characteristic ${BOX_UUID} não encontrada. Tentando usar ${MESSAGE_UUID} (TX)...`);
+                targetCharacteristic = characteristics.find(
+                    c => c.uuid.toLowerCase() === MESSAGE_UUID.toLowerCase()
+                );
+            }
+
+            // Se ainda não encontrou, usar a primeira característica que suporta escrita
+            if (!targetCharacteristic) {
+                console.warn('Nenhuma das características esperadas encontrada. Procurando qualquer característica que suporte escrita...');
+                targetCharacteristic = characteristics.find(
+                    c => c.isWritableWithResponse || c.isWritableWithoutResponse
+                );
+            }
+
+            if (!targetCharacteristic) {
+                console.error('Nenhuma característica com permissão de escrita encontrada!');
+                console.error('Características disponíveis:', characteristics.map(c => c.uuid));
+                return;
+            }
+
+            console.log(`Usando característica: ${targetCharacteristic.uuid}`);
+
+            console.log('Characteristic encontrada. Propriedades:', {
+                isWritableWithResponse: targetCharacteristic.isWritableWithResponse,
+                isWritableWithoutResponse: targetCharacteristic.isWritableWithoutResponse,
+            });
+
+            // Tentar primeiro com resposta (se suportado)
+            if (targetCharacteristic.isWritableWithResponse) {
+                try {
+                    const characteristic = await connectedDevice.writeCharacteristicWithResponseForService(
+                        SERVICE_UUID,
+                        targetCharacteristic.uuid,
+                        encodedValue,
+                    );
+
+                    console.log('Valor enviado com sucesso (with response)!');
+                    if (characteristic.value) {
+                        console.log('Boxvalue changed to:', base64.decode(characteristic.value));
+                    }
+                    return;
+                } catch (errorWithResponse: any) {
+                    console.warn('Erro ao enviar com resposta, tentando sem resposta:', errorWithResponse?.message || errorWithResponse);
+                }
+            }
+
+            // Se não suporta com resposta ou falhou, tentar sem resposta
+            if (targetCharacteristic.isWritableWithoutResponse) {
+                try {
+                    await connectedDevice.writeCharacteristicWithoutResponseForService(
+                        SERVICE_UUID,
+                        targetCharacteristic.uuid,
+                        encodedValue,
+                    );
+                    console.log('Valor enviado com sucesso (without response)!');
+                    return;
+                } catch (errorWithoutResponse: any) {
+                    console.error('Erro ao enviar sem resposta:', errorWithoutResponse?.message || errorWithoutResponse);
+                    throw errorWithoutResponse;
+                }
+            }
+
+            console.error('Characteristic não suporta escrita!');
+        } catch (error: any) {
+            console.error('Erro ao enviar valor para ESP32:', error?.message || error);
+            console.error('Detalhes do erro:', {
+                reason: error?.reason,
+                errorCode: error?.errorCode,
+                attErrorCode: error?.attErrorCode,
+            });
+
+            // Tentar reconectar se houver erro
+            try {
+                const isStillConnected = await connectedDevice.isConnected();
+                if (!isStillConnected) {
+                    setIsConnected(false);
+                    console.warn('Dispositivo desconectado após erro');
+                }
+            } catch (checkError) {
+                setIsConnected(false);
+                console.warn('Erro ao verificar conexão:', checkError);
+            }
         }
-    };
+    }
+    //Connect the device and start monitoring characteristics
+    async function connectDevice(device: Device) {
+        const deviceName = device.name || device.id;
+        console.log('Conectando ao dispositivo:', deviceName);
+        setMessage(`Conectando a ${deviceName}...`);
+
+        try {
+            const connectedDevice = await device.connect();
+            console.log('Dispositivo conectado:', deviceName);
+            setConnectedDevice(connectedDevice);
+            setIsConnected(true);
+            setMessage(`Conectado: ${deviceName}`);
+
+            // Descobrir serviços e características
+            const deviceWithServices = await connectedDevice.discoverAllServicesAndCharacteristics();
+            console.log('Serviços e características descobertos');
+
+            //  Set what to do when DC is detected
+            BLTManager.onDeviceDisconnected(deviceWithServices.id, (error, device) => {
+                console.log('Dispositivo desconectado');
+                setMessage('Dispositivo desconectado');
+                setIsConnected(false);
+                setConnectedDevice(undefined);
+            });
+
+            // Verificar se o serviço existe
+            const services = await deviceWithServices.services();
+            const targetService = services.find(
+                (s) => s.uuid.toLowerCase() === SERVICE_UUID.toLowerCase()
+            );
+
+            if (!targetService) {
+                console.warn('Service não encontrado:', SERVICE_UUID);
+                setMessage(`Conectado, mas service ${SERVICE_UUID} não encontrado`);
+                return;
+            }
+
+            console.log('Service encontrado:', SERVICE_UUID);
+
+            //Read inital values
+            try {
+                //Message
+                const messageChar = await deviceWithServices.readCharacteristicForService(
+                    SERVICE_UUID,
+                    MESSAGE_UUID
+                );
+                if (messageChar?.value) {
+                    setMessage(base64.decode(messageChar.value));
+                }
+            } catch (error) {
+                console.warn('Erro ao ler MESSAGE_UUID:', error);
+            }
+
+            try {
+                //BoxValue
+                const boxChar = await deviceWithServices.readCharacteristicForService(
+                    SERVICE_UUID,
+                    BOX_UUID
+                );
+                if (boxChar?.value) {
+                    setBoxValue(StringToBool(base64.decode(boxChar.value)));
+                }
+            } catch (error) {
+                console.warn('Erro ao ler BOX_UUID:', error);
+            }
+
+            //monitor values and tell what to do when receiving an update
+
+            //Message
+            deviceWithServices.monitorCharacteristicForService(
+                SERVICE_UUID,
+                MESSAGE_UUID,
+                (error, characteristic) => {
+                    if (error) {
+                        console.warn('Erro ao monitorar MESSAGE_UUID:', error);
+                        return;
+                    }
+                    if (characteristic?.value != null) {
+                        setMessage(base64.decode(characteristic?.value));
+                        console.log(
+                            'Message update received: ',
+                            base64.decode(characteristic?.value),
+                        );
+                    }
+                },
+                'messagetransaction',
+            );
+
+            //BoxValue
+            deviceWithServices.monitorCharacteristicForService(
+                SERVICE_UUID,
+                BOX_UUID,
+                (error, characteristic) => {
+                    if (error) {
+                        console.warn('Erro ao monitorar BOX_UUID:', error);
+                        return;
+                    }
+                    if (characteristic?.value != null) {
+                        setBoxValue(StringToBool(base64.decode(characteristic?.value)));
+                        console.log(
+                            'Box Value update received: ',
+                            base64.decode(characteristic?.value),
+                        );
+                    }
+                },
+                'boxtransaction',
+            );
+
+            console.log('Conexão estabelecida com sucesso');
+            setMessage(`Conectado: ${deviceName} - Pronto para enviar`);
+        } catch (error: any) {
+            console.error('Erro ao conectar:', error);
+            setMessage(`Erro ao conectar: ${error?.message || String(error)}`);
+            setIsConnected(false);
+            setConnectedDevice(undefined);
+        }
+    }
 
     return (
-        <SafeScreen>
-            <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-                <Header />
-                <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-                    <View style={styles.content}>
-                        <Text style={[styles.title, { color: theme.colors.text }]}>
-                            Conexão BLE com ESP32
-                        </Text>
-                        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-                            Configure o WiFi do ESP32 via Bluetooth Low Energy
-                        </Text>
+        <ScrollView>
+            <View>
+                <View style={{ paddingBottom: 200 }}></View>
 
-                        {/* Status */}
-                        <View style={[styles.statusCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-                            <View style={styles.statusRow}>
-                                <Text style={[styles.statusLabel, { color: theme.colors.textSecondary }]}>
-                                    Status:
-                                </Text>
-                                <View style={styles.statusValueContainer}>
-                                    <View style={[styles.statusDot, { backgroundColor: getStatusColor() }]} />
-                                    <Text style={[styles.statusValue, { color: getStatusColor() }]}>
-                                        {status.toUpperCase()}
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
+                {/* Title */}
+                <View style={styles.rowView}>
+                    <Text style={styles.titleText}>BLE Example</Text>
+                </View>
 
-                        {/* Botões de controle */}
-                        <View style={styles.buttonRow}>
-                            {isScanning ? (
-                                <TouchableOpacity 
-                                    style={[styles.button, { backgroundColor: theme.colors.warning }]} 
-                                    onPress={stopScan}
-                                >
-                                    <Ionicons name="stop-circle" size={20} color={theme.colors.buttonText} />
-                                    <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                                        Parar Scan
-                                    </Text>
-                                </TouchableOpacity>
-                            ) : (
-                                <TouchableOpacity 
-                                    style={[styles.button, { backgroundColor: theme.colors.buttonPrimary }]} 
-                                    onPress={startScan}
-                                >
-                                    <Ionicons name="search" size={20} color={theme.colors.buttonText} />
-                                    <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                                        Escanear BLE
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
+                <View style={{ paddingBottom: 20 }}></View>
 
-                            {bleService.isConnected() && (
-                                <TouchableOpacity 
-                                    style={[styles.button, styles.buttonSecondary, { 
-                                        borderColor: theme.colors.error,
-                                        backgroundColor: 'transparent'
-                                    }]} 
-                                    onPress={disconnect}
-                                >
-                                    <Ionicons name="close-circle" size={20} color={theme.colors.error} />
-                                    <Text style={[styles.buttonText, { color: theme.colors.error }]}>
-                                        Desconectar
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-
-                        {/* Lista de dispositivos */}
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                                Dispositivos Encontrados ({devices.length})
-                            </Text>
-                            {devices.length === 0 ? (
-                                <View style={[styles.emptyCard, { backgroundColor: theme.colors.surface }]}>
-                                    <Ionicons name="bluetooth-outline" size={32} color={theme.colors.textTertiary} />
-                                    <Text style={[styles.emptyText, { color: theme.colors.textTertiary }]}>
-                                        Nenhum dispositivo encontrado.{'\n'}Toque em "Escanear BLE" para procurar.
-                                    </Text>
-                                </View>
-                            ) : (
-                                <FlatList
-                                    data={devices}
-                                    keyExtractor={(item) => item.id}
-                                    scrollEnabled={false}
-                                    renderItem={({ item }) => (
-                                        <View style={[styles.deviceCard, { 
-                                            backgroundColor: theme.colors.card, 
-                                            borderColor: theme.colors.border 
-                                        }]}>
-                                            <View style={styles.deviceInfo}>
-                                                <Ionicons 
-                                                    name="bluetooth" 
-                                                    size={24} 
-                                                    color={connectedDeviceId === item.id ? theme.colors.success : theme.colors.primary} 
-                                                />
-                                                <View style={styles.deviceDetails}>
-                                                    <Text style={[styles.deviceName, { color: theme.colors.text }]}>
-                                                        {item.name}
-                                                    </Text>
-                                                    <Text style={[styles.deviceId, { color: theme.colors.textSecondary }]}>
-                                                        {item.id.substring(0, 17)}...
-                                                    </Text>
-                                                    <Text style={[styles.deviceRssi, { color: theme.colors.textTertiary }]}>
-                                                        RSSI: {item.rssi} dBm
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.connectButton,
-                                                    { 
-                                                        backgroundColor: connectedDeviceId === item.id 
-                                                            ? theme.colors.success 
-                                                            : theme.colors.buttonPrimary 
-                                                    }
-                                                ]}
-                                                onPress={() =>
-                                                    connectedDeviceId === item.id 
-                                                        ? disconnect() 
-                                                        : connectToDevice(item.id)
-                                                }
-                                                disabled={status === 'conectando'}
-                                            >
-                                                {status === 'conectando' && connectedDeviceId !== item.id ? (
-                                                    <ActivityIndicator size="small" color={theme.colors.buttonText} />
-                                                ) : (
-                                                    <Text style={[styles.connectButtonText, { color: theme.colors.buttonText }]}>
-                                                        {connectedDeviceId === item.id ? 'Conectado' : 'Conectar'}
-                                                    </Text>
-                                                )}
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-                                />
-                            )}
-                        </View>
-
-                        {/* Formulário WiFi */}
-                        {bleService.isConnected() && (
-                            <View style={[styles.section, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-                                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                                    Configurar WiFi no ESP32
-                                </Text>
-
-                                <TextInput
-                                    style={[styles.input, { 
-                                        borderColor: theme.colors.border,
-                                        color: theme.colors.text,
-                                        backgroundColor: theme.colors.surface
-                                    }]}
-                                    placeholder="SSID do WiFi"
-                                    placeholderTextColor={theme.colors.textTertiary}
-                                    value={wifiSSID}
-                                    onChangeText={setWifiSSID}
-                                    autoCapitalize="none"
-                                />
-
-                                <TextInput
-                                    style={[styles.input, { 
-                                        borderColor: theme.colors.border,
-                                        color: theme.colors.text,
-                                        backgroundColor: theme.colors.surface
-                                    }]}
-                                    placeholder="Senha do WiFi"
-                                    placeholderTextColor={theme.colors.textTertiary}
-                                    value={wifiPassword}
-                                    onChangeText={setWifiPassword}
-                                    secureTextEntry
-                                    autoCapitalize="none"
-                                />
-
-                                <TouchableOpacity 
-                                    style={[styles.sendButton, { backgroundColor: theme.colors.success }]} 
-                                    onPress={sendWiFiCredentials}
-                                >
-                                    <Ionicons name="send" size={20} color={theme.colors.buttonText} />
-                                    <Text style={[styles.sendButtonText, { color: theme.colors.buttonText }]}>
-                                        Enviar Credenciais WiFi (cmd: 5)
-                                    </Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity 
-                                    style={[styles.sendButton, { backgroundColor: theme.colors.primary }]} 
-                                    onPress={async () => {
-                                        try {
-                                            addLog('📤 Solicitando lista de WiFis (cmd: 4)...');
-                                            await bleService.listWiFis();
-                                            addLog('✅ Comando enviado! Aguardando resposta do ESP32...');
-                                        } catch (error: any) {
-                                            addLog(`❌ Erro: ${error?.message || 'Erro desconhecido'}`);
-                                        }
-                                    }}
-                                >
-                                    <Ionicons name="wifi" size={20} color={theme.colors.buttonText} />
-                                    <Text style={[styles.sendButtonText, { color: theme.colors.buttonText }]}>
-                                        Listar WiFis (cmd: 4)
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
+                {/* Connect Button */}
+                <View style={styles.rowView}>
+                    <TouchableOpacity style={{ width: 120 }}>
+                        {!isConnected ? (
+                            <Button
+                                title="Connect"
+                                onPress={() => {
+                                    scanDevices();
+                                }}
+                                disabled={false}
+                            />
+                        ) : (
+                            <Button
+                                title="Disonnect"
+                                onPress={() => {
+                                    disconnectDevice();
+                                }}
+                                disabled={false}
+                            />
                         )}
+                    </TouchableOpacity>
+                </View>
 
-                        {/* Logs */}
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                                Logs ({logs.length})
-                            </Text>
-                            <View style={[styles.logContainer, { backgroundColor: theme.colors.surface }]}>
-                                {logs.length === 0 ? (
-                                    <Text style={[styles.emptyText, { color: theme.colors.textTertiary }]}>
-                                        Nenhum log ainda
-                                    </Text>
-                                ) : (
-                                    <FlatList
-                                        data={logs}
-                                        keyExtractor={(item, index) => `${index}-${item}`}
-                                        renderItem={({ item }) => (
-                                            <Text style={[styles.logText, { color: theme.colors.textSecondary }]}>
-                                                {item}
-                                            </Text>
-                                        )}
-                                        scrollEnabled={true}
-                                        nestedScrollEnabled={true}
-                                        style={{ maxHeight: 150 }}
-                                    />
-                                )}
-                            </View>
-                        </View>
+                <View style={{ paddingBottom: 20 }}></View>
+
+                {/* Monitored Value */}
+                <View style={styles.rowView}>
+                    <Text style={styles.baseText}>{message}</Text>
+                </View>
+
+                <View style={{ paddingBottom: 10 }}></View>
+
+                {/* Lista de Dispositivos Encontrados */}
+                {dispositivos.length > 0 && (
+                    <View style={styles.devicesContainer}>
+                        <Text style={styles.devicesTitle}>Dispositivos encontrados:</Text>
+                        {dispositivos.map((device) => (
+                            <TouchableOpacity
+                                key={device.id}
+                                style={styles.deviceItem}
+                                onPress={() => {
+                                    BLTManager.stopDeviceScan();
+                                    setIsScanning(false);
+                                    connectDevice(device);
+                                }}
+                            >
+                                <Text style={styles.deviceName}>
+                                    {device.name || '(sem nome)'}
+                                </Text>
+                                <Text style={styles.deviceId}>ID: {device.id}</Text>
+                                <Text style={styles.deviceRssi}>RSSI: {device.rssi}</Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
-                </ScrollView>
+                )}
+
+                {isScanning && (
+                    <View style={styles.rowView}>
+                        <Text style={styles.scanningText}>Escaneando...</Text>
+                    </View>
+                )}
+
+                <View style={{ paddingBottom: 20 }}></View>
+
+                {/* WiFi SSID Input */}
+                <View style={styles.rowView}>
+                    <Text style={styles.labelText}>SSID:</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={wifiSSID}
+                        onChangeText={setWifiSSID}
+                        placeholder="Digite o SSID"
+                        placeholderTextColor="#999"
+                    />
+                </View>
+
+                <View style={{ paddingBottom: 10 }}></View>
+
+                {/* WiFi Password Input */}
+                <View style={styles.rowView}>
+                    <Text style={styles.labelText}>Password:</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={wifiPassword}
+                        onChangeText={setWifiPassword}
+                        placeholder="Digite a senha"
+                        placeholderTextColor="#999"
+                        secureTextEntry
+                    />
+                </View>
+
+                <View style={{ paddingBottom: 20 }}></View>
+
+                {/* Switch */}
+                <View style={styles.rowView}>
+                    <Text style={styles.labelText}>Enviar WiFi:</Text>
+                    <Switch
+                        disabled={false}
+                        value={boxvalue}
+                        onValueChange={(newValue: boolean) => {
+                            setBoxValue(newValue);
+                            sendBoxValue(newValue);
+                        }}
+                    />
+                </View>
             </View>
-        </SafeScreen>
+        </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    content: {
-        flex: 1,
-        paddingHorizontal: 16,
-        paddingTop: 20,
-        paddingBottom: 40,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: "600",
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 15,
-        marginBottom: 24,
-    },
-    statusCard: {
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 16,
-    },
-    statusRow: {
+    rowView: {
         flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    statusLabel: {
-        fontSize: 16,
-    },
-    statusValueContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    statusDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-    },
-    statusValue: {
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    buttonRow: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 24,
-    },
-    button: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 14,
-        borderRadius: 12,
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 10,
     },
-    buttonSecondary: {
-        borderWidth: 1,
-    },
-    buttonText: {
-        fontSize: 16,
+    titleText: {
+        fontSize: 24,
         fontWeight: '600',
     },
-    section: {
-        marginBottom: 24,
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
+    baseText: {
+        fontSize: 16,
     },
-    sectionTitle: {
+    labelText: {
+        fontSize: 16,
+        marginRight: 10,
+        minWidth: 80,
+    },
+    input: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 5,
+        padding: 10,
+        fontSize: 16,
+        backgroundColor: '#fff',
+    },
+    devicesContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 10,
+    },
+    devicesTitle: {
         fontSize: 18,
         fontWeight: '600',
-        marginBottom: 16,
+        marginBottom: 10,
     },
-    emptyCard: {
-        padding: 32,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    emptyText: {
-        fontSize: 14,
-        textAlign: 'center',
-        marginTop: 12,
-    },
-    deviceCard: {
+    deviceItem: {
         borderWidth: 1,
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    deviceInfo: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    deviceDetails: {
-        flex: 1,
+        borderColor: '#ccc',
+        borderRadius: 5,
+        padding: 15,
+        marginBottom: 10,
+        backgroundColor: '#f5f5f5',
     },
     deviceName: {
         fontSize: 16,
         fontWeight: '600',
-        marginBottom: 4,
+        marginBottom: 5,
     },
     deviceId: {
         fontSize: 12,
-        marginBottom: 2,
+        color: '#666',
+        marginBottom: 3,
     },
     deviceRssi: {
         fontSize: 12,
+        color: '#666',
     },
-    connectButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 8,
-        minWidth: 100,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    connectButtonText: {
+    scanningText: {
         fontSize: 14,
-        fontWeight: '600',
-    },
-    input: {
-        borderWidth: 1,
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        fontSize: 16,
-        marginBottom: 12,
-    },
-    sendButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 14,
-        borderRadius: 12,
-        marginTop: 8,
-    },
-    sendButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    logContainer: {
-        borderRadius: 12,
-        padding: 12,
-        maxHeight: 150,
-    },
-    logText: {
-        fontSize: 12,
-        fontFamily: 'monospace',
-        marginBottom: 4,
+        fontStyle: 'italic',
+        color: '#666',
     },
 });

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -11,7 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { BleManager, Device, Subscription } from "react-native-ble-plx";
+import base64 from "react-native-base64";
+import { BleManager, Device } from "react-native-ble-plx";
 import { NetworkInfo } from "react-native-network-info";
 import { useTheme } from "../context/ThemeContext";
 import ModalGlobal from "./ModalGlobal";
@@ -25,31 +26,11 @@ type LogEntry = {
   horario: string;
 };
 
-const DEFAULT_SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-const DEFAULT_TX_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-const DEFAULT_RX_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a9";
+const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+const MESSAGE_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+const BOX_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a9";
 
-const encodeUtf8ToBase64 = (valor: string) => {
-  try {
-    if (typeof globalThis.btoa === "function") {
-      return globalThis.btoa(unescape(encodeURIComponent(valor)));
-    }
-  } catch {
-    return "";
-  }
-  return "";
-};
-
-const decodeBase64ToUtf8 = (valor: string) => {
-  try {
-    if (typeof globalThis.atob === "function") {
-      return decodeURIComponent(escape(globalThis.atob(valor)));
-    }
-  } catch {
-    return "";
-  }
-  return "";
-};
+const BLTManager = new BleManager();
 
 interface ModalBLEConnectionProps {
   visible: boolean;
@@ -58,18 +39,13 @@ interface ModalBLEConnectionProps {
 
 export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnectionProps) {
   const { theme } = useTheme();
-  const managerRef = useRef(new BleManager());
-  const notificationRef = useRef<Subscription | null>(null);
 
   const [status, setStatus] = useState<ConnectionStatus>("desconectado");
   const [mensagem, setMensagem] = useState("");
   const [log, setLog] = useState<LogEntry[]>([]);
   const [dispositivos, setDispositivos] = useState<Device[]>([]);
   const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
-  const [conectandoId, setConectandoId] = useState<string | null>(null);
-  const [serviceUuid, setServiceUuid] = useState(DEFAULT_SERVICE_UUID);
-  const [txCharacteristicUuid, setTxCharacteristicUuid] = useState(DEFAULT_TX_UUID);
-  const [rxCharacteristicUuid, setRxCharacteristicUuid] = useState(DEFAULT_RX_UUID);
+  const [isScanning, setIsScanning] = useState(false);
   const [wifiSSID, setWifiSSID] = useState("");
   const [wifiPassword, setWifiPassword] = useState("");
 
@@ -92,10 +68,6 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
     if (!visible) {
       desconectar();
     }
-    return () => {
-      notificationRef.current?.remove();
-      managerRef.current.destroy();
-    };
   }, [visible]);
 
   const registrarLog = useCallback((origem: LogEntry["origem"], mensagem: string) => {
@@ -128,12 +100,20 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
 
       if (!granted) {
         registrarLog("sistema", "Permissões de Bluetooth negadas.");
+        return false;
       }
 
       return granted;
     } else {
       const result = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: "Permission Localisation Bluetooth",
+          message: "Requirement for Bluetooth",
+          buttonNeutral: "Later",
+          buttonNegative: "Cancel",
+          buttonPositive: "OK",
+        },
       );
 
       if (result !== PermissionsAndroid.RESULTS.GRANTED) {
@@ -144,130 +124,155 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
     }
   }, [registrarLog]);
 
-  const resetDispositivos = useCallback(() => {
-    setDispositivos([]);
-  }, []);
-
-  const iniciarScan = useCallback(async () => {
-    if (!(await requestPermissions())) {
+  // Scans available BLE Devices
+  const scanDevices = useCallback(async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      registrarLog("sistema", "Permissões necessárias não foram concedidas");
       return;
     }
 
-    resetDispositivos();
+    setDispositivos([]);
+    setIsScanning(true);
     setStatus("escaneando");
-    registrarLog("sistema", "Iniciando varredura por dispositivos BLE...");
+    registrarLog("sistema", "Escaneando dispositivos...");
 
-    managerRef.current.startDeviceScan(null, null, (error, device) => {
+    BLTManager.startDeviceScan(null, null, (error, scannedDevice) => {
       if (error) {
         registrarLog("sistema", `Erro ao escanear: ${error.message}`);
         setStatus("erro");
-        managerRef.current.stopDeviceScan();
+        setIsScanning(false);
+        BLTManager.stopDeviceScan();
         return;
       }
 
-      if (!device) return;
+      if (!scannedDevice) return;
 
-      setDispositivos((prev) => {
-        const existe = prev.some((d) => d.id === device.id);
-        if (existe) return prev;
-        return [device, ...prev];
+      // Log do dispositivo encontrado
+      console.log("Dispositivo encontrado:", {
+        id: scannedDevice.id,
+        name: scannedDevice.name || "(sem nome)",
+        rssi: scannedDevice.rssi,
+        isConnectable: scannedDevice.isConnectable,
       });
-    });
-  }, [requestPermissions, resetDispositivos, registrarLog]);
 
-  const pararScan = useCallback(
-    (motivo?: string) => {
-      managerRef.current.stopDeviceScan();
-      if (status === "escaneando") {
+      // Adicionar à lista de dispositivos (evitar duplicatas)
+      setDispositivos((prev) => {
+        const existe = prev.some((d) => d.id === scannedDevice.id);
+        if (existe) return prev;
+        return [scannedDevice, ...prev];
+      });
+
+      // Tentar conectar automaticamente se encontrar dispositivo com nome específico
+      if (scannedDevice.name === "BLEExample" || scannedDevice.name?.includes("ESP")) {
+        registrarLog("sistema", "Dispositivo ESP encontrado, conectando...");
+        BLTManager.stopDeviceScan();
+        setIsScanning(false);
+        connectDevice(scannedDevice);
+      }
+    });
+
+    // stop scanning devices after 10 seconds
+    setTimeout(() => {
+      BLTManager.stopDeviceScan();
+      setIsScanning(false);
+      if (dispositivos.length === 0) {
+        registrarLog("sistema", "Nenhum dispositivo encontrado. Tente novamente.");
+        setStatus("desconectado");
+      } else {
+        registrarLog("sistema", `${dispositivos.length} dispositivo(s) encontrado(s). Toque para conectar.`);
         setStatus("desconectado");
       }
-      if (motivo) {
-        registrarLog("sistema", motivo);
-      }
-    },
-    [registrarLog, status],
-  );
+    }, 10000);
+  }, [requestPermissions, registrarLog, dispositivos.length]);
 
-  const limparNotificacoes = useCallback(() => {
-    notificationRef.current?.remove();
-    notificationRef.current = null;
-  }, []);
+  // Connect the device and start monitoring characteristics
+  const connectDevice = useCallback(async (device: Device) => {
+    const deviceName = device.name || device.id;
+    registrarLog("sistema", `Conectando a ${deviceName}...`);
+    setStatus("conectando");
 
-  const monitorarNotificacoes = useCallback(
-    (device: Device) => {
-      if (!serviceUuid.trim() || !rxCharacteristicUuid.trim()) {
-        registrarLog("sistema", "Configure os UUIDs antes de ativar notificações.");
+    try {
+      const connectedDevice = await device.connect();
+      registrarLog("sistema", `Dispositivo conectado: ${deviceName}`);
+      setConnectedDevice(connectedDevice);
+      setStatus("conectado");
+
+      // Descobrir serviços e características
+      const deviceWithServices = await connectedDevice.discoverAllServicesAndCharacteristics();
+      registrarLog("sistema", "Serviços e características descobertos");
+
+      // Set what to do when DC is detected
+      BLTManager.onDeviceDisconnected(deviceWithServices.id, (error, device) => {
+        registrarLog("sistema", "Dispositivo desconectado");
+        setStatus("desconectado");
+        setConnectedDevice(null);
+      });
+
+      // Verificar se o serviço existe
+      const services = await deviceWithServices.services();
+      const targetService = services.find(
+        (s) => s.uuid.toLowerCase() === SERVICE_UUID.toLowerCase()
+      );
+
+      if (!targetService) {
+        registrarLog("sistema", `Service não encontrado: ${SERVICE_UUID}`);
+        setStatus("erro");
         return;
       }
 
-      limparNotificacoes();
+      registrarLog("sistema", `Service encontrado: ${SERVICE_UUID}`);
 
-      notificationRef.current = device.monitorCharacteristicForService(
-        serviceUuid.trim(),
-        rxCharacteristicUuid.trim(),
+      // Monitor characteristics
+      deviceWithServices.monitorCharacteristicForService(
+        SERVICE_UUID,
+        MESSAGE_UUID,
         (error, characteristic) => {
           if (error) {
-            registrarLog("sistema", `Erro nas notificações: ${error.message}`);
+            console.warn("Erro ao monitorar MESSAGE_UUID:", error);
             return;
           }
-
-          if (!characteristic?.value) {
-            registrarLog("esp32", "(mensagem vazia)");
-            return;
+          if (characteristic?.value != null) {
+            const decoded = base64.decode(characteristic.value);
+            registrarLog("esp32", decoded);
+            console.log("Message update received:", decoded);
           }
-
-          const texto = decodeBase64ToUtf8(characteristic.value);
-          registrarLog("esp32", texto || "(dados recebidos)");
         },
+        "messagetransaction",
       );
-    },
-    [limparNotificacoes, registrarLog, rxCharacteristicUuid, serviceUuid],
-  );
 
-  const conectarAoDispositivo = useCallback(
-    async (deviceId: string) => {
-      setConectandoId(deviceId);
-      setStatus("conectando");
-      registrarLog("sistema", "Tentando conectar ao dispositivo selecionado...");
-      managerRef.current.stopDeviceScan();
+      registrarLog("sistema", `Conectado: ${deviceName} - Pronto para enviar`);
+    } catch (error: any) {
+      registrarLog("sistema", `Erro ao conectar: ${error?.message || String(error)}`);
+      setStatus("erro");
+      setConnectedDevice(null);
+    }
+  }, [registrarLog]);
 
-      try {
-        const device = await managerRef.current.connectToDevice(deviceId, { timeout: 10000 });
-        const pronto = await device.discoverAllServicesAndCharacteristics();
-        setConnectedDevice(pronto);
-        setStatus("conectado");
-        registrarLog(
-          "sistema",
-          `Conectado a ${pronto.name ?? "dispositivo sem nome"} (${pronto.id}).`,
-        );
-
-        monitorarNotificacoes(pronto);
-      } catch (error) {
-        setStatus("erro");
-        setConnectedDevice(null);
-        registrarLog("sistema", `Falha ao conectar: ${String(error)}`);
-      } finally {
-        setConectandoId(null);
-      }
-    },
-    [monitorarNotificacoes, registrarLog],
-  );
-
+  // Handle the device disconnection
   const desconectar = useCallback(async () => {
-    limparNotificacoes();
+    registrarLog("sistema", "Desconectando...");
 
-    if (connectedDevice) {
-      try {
-        await managerRef.current.cancelDeviceConnection(connectedDevice.id);
-        registrarLog("sistema", "Conexão encerrada.");
-      } catch (error) {
-        registrarLog("sistema", `Falha ao desconectar: ${String(error)}`);
+    if (connectedDevice != null) {
+      const isDeviceConnected = await connectedDevice.isConnected();
+      if (isDeviceConnected) {
+        BLTManager.cancelTransaction("messagetransaction");
+        BLTManager.cancelTransaction("boxtransaction");
+
+        BLTManager.cancelDeviceConnection(connectedDevice.id).then(() => {
+          registrarLog("sistema", "Desconexão concluída");
+        });
+      }
+
+      const connectionStatus = await connectedDevice.isConnected();
+      if (!connectionStatus) {
+        setStatus("desconectado");
       }
     }
 
     setConnectedDevice(null);
     setStatus("desconectado");
-  }, [connectedDevice, limparNotificacoes, registrarLog]);
+  }, [connectedDevice, registrarLog]);
 
   const enviarMensagem = useCallback(async () => {
     if (!mensagem.trim()) {
@@ -280,36 +285,130 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
       return;
     }
 
-    if (!serviceUuid.trim() || !txCharacteristicUuid.trim()) {
-      registrarLog("sistema", "Informe o Service UUID e a characteristic de escrita.");
+    // Verificar permissões antes de enviar (especialmente importante no Android 12+)
+    if (Platform.OS === "android" && Platform.Version >= 31) {
+      const hasPermission = await requestPermissions();
+      if (!hasPermission) {
+        registrarLog("sistema", "Permissões necessárias não foram concedidas para enviar dados.");
+        return;
+      }
+    }
+
+    // Verificar se o dispositivo está realmente conectado
+    try {
+      const isConnected = await connectedDevice.isConnected();
+      if (!isConnected) {
+        registrarLog("sistema", "Dispositivo não está conectado.");
+        setStatus("desconectado");
+        return;
+      }
+    } catch (error) {
+      registrarLog("sistema", `Erro ao verificar conexão: ${String(error)}`);
+      setStatus("desconectado");
       return;
     }
 
-    const payload = encodeUtf8ToBase64(mensagem);
-
-    if (!payload) {
-      registrarLog("sistema", "Não foi possível converter a mensagem para base64.");
-      return;
-    }
+    const encodedValue = base64.encode(mensagem);
 
     try {
-      await connectedDevice.writeCharacteristicWithResponseForService(
-        serviceUuid.trim(),
-        txCharacteristicUuid.trim(),
-        payload,
+      // Primeiro, tentar descobrir as características para verificar permissões
+      const services = await connectedDevice.services();
+      const targetService = services.find(
+        (s) => s.uuid.toLowerCase() === SERVICE_UUID.toLowerCase()
       );
-      registrarLog("app", mensagem);
-      setMensagem("");
-    } catch (error) {
-      registrarLog("sistema", `Erro ao enviar: ${String(error)}`);
+
+      if (!targetService) {
+        registrarLog("sistema", `Service não encontrado: ${SERVICE_UUID}`);
+        return;
+      }
+
+      const characteristics = await targetService.characteristics();
+
+      // Listar todas as características disponíveis para debug
+      console.log("Características disponíveis:");
+      characteristics.forEach((char) => {
+        console.log(`- UUID: ${char.uuid}, WritableWithResponse: ${char.isWritableWithResponse}, WritableWithoutResponse: ${char.isWritableWithoutResponse}`);
+      });
+
+      // Tentar encontrar a característica MESSAGE_UUID primeiro
+      let targetCharacteristic = characteristics.find(
+        (c) => c.uuid.toLowerCase() === MESSAGE_UUID.toLowerCase()
+      );
+
+      // Se não encontrar MESSAGE_UUID, tentar usar BOX_UUID como alternativa
+      if (!targetCharacteristic) {
+        registrarLog("sistema", `Characteristic ${MESSAGE_UUID} não encontrada. Tentando usar ${BOX_UUID}...`);
+        targetCharacteristic = characteristics.find(
+          (c) => c.uuid.toLowerCase() === BOX_UUID.toLowerCase()
+        );
+      }
+
+      // Se ainda não encontrou, usar a primeira característica que suporta escrita
+      if (!targetCharacteristic) {
+        registrarLog("sistema", "Nenhuma das características esperadas encontrada. Procurando qualquer característica que suporte escrita...");
+        targetCharacteristic = characteristics.find(
+          (c) => c.isWritableWithResponse || c.isWritableWithoutResponse
+        );
+      }
+
+      if (!targetCharacteristic) {
+        registrarLog("sistema", "Nenhuma característica com permissão de escrita encontrada!");
+        return;
+      }
+
+      registrarLog("sistema", `Usando característica: ${targetCharacteristic.uuid}`);
+
+      // Tentar primeiro com resposta (se suportado)
+      if (targetCharacteristic.isWritableWithResponse) {
+        try {
+          await connectedDevice.writeCharacteristicWithResponseForService(
+            SERVICE_UUID,
+            targetCharacteristic.uuid,
+            encodedValue,
+          );
+          registrarLog("app", mensagem);
+          setMensagem("");
+          return;
+        } catch (errorWithResponse: any) {
+          registrarLog("sistema", `Erro ao enviar com resposta, tentando sem resposta: ${errorWithResponse?.message || String(errorWithResponse)}`);
+        }
+      }
+
+      // Se não suporta com resposta ou falhou, tentar sem resposta
+      if (targetCharacteristic.isWritableWithoutResponse) {
+        try {
+          await connectedDevice.writeCharacteristicWithoutResponseForService(
+            SERVICE_UUID,
+            targetCharacteristic.uuid,
+            encodedValue,
+          );
+          registrarLog("app", mensagem);
+          setMensagem("");
+          return;
+        } catch (errorWithoutResponse: any) {
+          registrarLog("sistema", `Erro ao enviar sem resposta: ${errorWithoutResponse?.message || String(errorWithoutResponse)}`);
+          throw errorWithoutResponse;
+        }
+      }
+
+      registrarLog("sistema", "Characteristic não suporta escrita!");
+    } catch (error: any) {
+      registrarLog("sistema", `Erro ao enviar: ${error?.message || String(error)}`);
+      registrarLog("sistema", `Detalhes: reason=${error?.reason}, errorCode=${error?.errorCode}, attErrorCode=${error?.attErrorCode}`);
+
+      // Tentar reconectar se houver erro
+      try {
+        const isStillConnected = await connectedDevice.isConnected();
+        if (!isStillConnected) {
+          setStatus("desconectado");
+          registrarLog("sistema", "Dispositivo desconectado após erro");
+        }
+      } catch (checkError) {
+        setStatus("desconectado");
+        registrarLog("sistema", "Erro ao verificar conexão após erro");
+      }
     }
-  }, [
-    connectedDevice,
-    mensagem,
-    registrarLog,
-    serviceUuid,
-    txCharacteristicUuid,
-  ]);
+  }, [connectedDevice, mensagem, registrarLog, requestPermissions]);
 
   const renderLog = ({ item }: { item: LogEntry }) => {
     const cor =
@@ -345,32 +444,137 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
       return;
     }
 
-    const json = JSON.stringify({
+    // Verificar permissões antes de enviar (especialmente importante no Android 12+)
+    if (Platform.OS === "android" && Platform.Version >= 31) {
+      const hasPermission = await requestPermissions();
+      if (!hasPermission) {
+        registrarLog("sistema", "Permissões necessárias não foram concedidas para enviar dados.");
+        return;
+      }
+    }
+
+    // Verificar se o dispositivo está realmente conectado
+    try {
+      const isConnected = await connectedDevice.isConnected();
+      if (!isConnected) {
+        registrarLog("sistema", "Dispositivo não está conectado.");
+        setStatus("desconectado");
+        return;
+      }
+    } catch (error) {
+      registrarLog("sistema", `Erro ao verificar conexão: ${String(error)}`);
+      setStatus("desconectado");
+      return;
+    }
+
+    // Criar JSON com cmd: 5, ssid e password
+    const jsonData = JSON.stringify({
+      cmd: 5,
       ssid: wifiSSID,
       password: wifiPassword,
     });
 
-    const payload = encodeUtf8ToBase64(json);
+    const encodedValue = base64.encode(jsonData);
+
+    console.log("Enviando JSON:", jsonData, "Encoded:", encodedValue);
 
     try {
-      await connectedDevice.writeCharacteristicWithResponseForService(
-        serviceUuid.trim(),
-        txCharacteristicUuid.trim(),
-        payload
+      // Primeiro, tentar descobrir as características para verificar permissões
+      const services = await connectedDevice.services();
+      const targetService = services.find(
+        (s) => s.uuid.toLowerCase() === SERVICE_UUID.toLowerCase()
       );
 
-      registrarLog("app", `WiFi enviado automaticamente: SSID=${wifiSSID}`);
-    } catch (error) {
-      registrarLog("sistema", `Erro ao enviar Wi-Fi: ${String(error)}`);
+      if (!targetService) {
+        registrarLog("sistema", `Service não encontrado: ${SERVICE_UUID}`);
+        return;
+      }
+
+      const characteristics = await targetService.characteristics();
+
+      // Listar todas as características disponíveis para debug
+      console.log("Características disponíveis:");
+      characteristics.forEach((char) => {
+        console.log(`- UUID: ${char.uuid}, WritableWithResponse: ${char.isWritableWithResponse}, WritableWithoutResponse: ${char.isWritableWithoutResponse}`);
+      });
+
+      // Tentar encontrar a característica BOX_UUID primeiro
+      let targetCharacteristic = characteristics.find(
+        (c) => c.uuid.toLowerCase() === BOX_UUID.toLowerCase()
+      );
+
+      // Se não encontrar BOX_UUID, tentar usar MESSAGE_UUID (TX) como alternativa
+      if (!targetCharacteristic) {
+        registrarLog("sistema", `Characteristic ${BOX_UUID} não encontrada. Tentando usar ${MESSAGE_UUID} (TX)...`);
+        targetCharacteristic = characteristics.find(
+          (c) => c.uuid.toLowerCase() === MESSAGE_UUID.toLowerCase()
+        );
+      }
+
+      // Se ainda não encontrou, usar a primeira característica que suporta escrita
+      if (!targetCharacteristic) {
+        registrarLog("sistema", "Nenhuma das características esperadas encontrada. Procurando qualquer característica que suporte escrita...");
+        targetCharacteristic = characteristics.find(
+          (c) => c.isWritableWithResponse || c.isWritableWithoutResponse
+        );
+      }
+
+      if (!targetCharacteristic) {
+        registrarLog("sistema", "Nenhuma característica com permissão de escrita encontrada!");
+        return;
+      }
+
+      registrarLog("sistema", `Usando característica: ${targetCharacteristic.uuid}`);
+
+      // Tentar primeiro com resposta (se suportado)
+      if (targetCharacteristic.isWritableWithResponse) {
+        try {
+          await connectedDevice.writeCharacteristicWithResponseForService(
+            SERVICE_UUID,
+            targetCharacteristic.uuid,
+            encodedValue,
+          );
+          registrarLog("app", `WiFi enviado: SSID=${wifiSSID} (cmd: 5)`);
+          return;
+        } catch (errorWithResponse: any) {
+          registrarLog("sistema", `Erro ao enviar com resposta, tentando sem resposta: ${errorWithResponse?.message || String(errorWithResponse)}`);
+        }
+      }
+
+      // Se não suporta com resposta ou falhou, tentar sem resposta
+      if (targetCharacteristic.isWritableWithoutResponse) {
+        try {
+          await connectedDevice.writeCharacteristicWithoutResponseForService(
+            SERVICE_UUID,
+            targetCharacteristic.uuid,
+            encodedValue,
+          );
+          registrarLog("app", `WiFi enviado: SSID=${wifiSSID} (cmd: 5)`);
+          return;
+        } catch (errorWithoutResponse: any) {
+          registrarLog("sistema", `Erro ao enviar sem resposta: ${errorWithoutResponse?.message || String(errorWithoutResponse)}`);
+          throw errorWithoutResponse;
+        }
+      }
+
+      registrarLog("sistema", "Characteristic não suporta escrita!");
+    } catch (error: any) {
+      registrarLog("sistema", `Erro ao enviar Wi-Fi: ${error?.message || String(error)}`);
+      registrarLog("sistema", `Detalhes: reason=${error?.reason}, errorCode=${error?.errorCode}, attErrorCode=${error?.attErrorCode}`);
+
+      // Tentar reconectar se houver erro
+      try {
+        const isStillConnected = await connectedDevice.isConnected();
+        if (!isStillConnected) {
+          setStatus("desconectado");
+          registrarLog("sistema", "Dispositivo desconectado após erro");
+        }
+      } catch (checkError) {
+        setStatus("desconectado");
+        registrarLog("sistema", "Erro ao verificar conexão após erro");
+      }
     }
-  }, [
-    wifiSSID,
-    wifiPassword,
-    connectedDevice,
-    registrarLog,
-    serviceUuid,
-    txCharacteristicUuid,
-  ]);
+  }, [wifiSSID, wifiPassword, connectedDevice, registrarLog, requestPermissions]);
 
   useEffect(() => {
     if (!visible) return;
@@ -501,13 +705,18 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
                 styles.button,
                 {
                   backgroundColor:
-                    status === "escaneando" ? theme.colors.warning : theme.colors.buttonPrimary,
+                    isScanning ? theme.colors.warning : theme.colors.buttonPrimary,
                 },
               ]}
-              onPress={status === "escaneando" ? () => pararScan("Varredura interrompida.") : iniciarScan}
+              onPress={isScanning ? () => {
+                BLTManager.stopDeviceScan();
+                setIsScanning(false);
+                setStatus("desconectado");
+                registrarLog("sistema", "Varredura interrompida.");
+              } : scanDevices}
             >
               <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
-                {status === "escaneando" ? "Parar varredura" : "Escanear BLE"}
+                {isScanning ? "Parar varredura" : "Escanear BLE"}
               </Text>
             </TouchableOpacity>
 
@@ -576,12 +785,16 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
                       },
                     ]}
                     disabled={!!connectedDevice && connectedDevice.id !== device.id}
-                    onPress={() => conectarAoDispositivo(device.id)}
+                    onPress={() => {
+                      BLTManager.stopDeviceScan();
+                      setIsScanning(false);
+                      connectDevice(device);
+                    }}
                   >
                     <Text style={[styles.buttonText, { color: theme.colors.buttonText }]}>
                       {connectedDevice?.id === device.id
                         ? "Conectado"
-                        : conectandoId === device.id
+                        : status === "conectando"
                           ? "Conectando..."
                           : "Conectar"}
                     </Text>
@@ -596,12 +809,31 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
               Configurar Wi-Fi no ESP32
             </Text>
 
+            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>SSID (Nome da rede)</Text>
+            <TextInput
+              value={wifiSSID}
+              onChangeText={setWifiSSID}
+              placeholder="Digite o SSID da rede Wi-Fi"
+              placeholderTextColor={theme.colors.textTertiary}
+              autoCapitalize="none"
+              style={[
+                styles.input,
+                {
+                  borderColor: theme.colors.border,
+                  color: theme.colors.text,
+                  backgroundColor: theme.colors.surface,
+                },
+              ]}
+            />
+
+            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Senha</Text>
             <TextInput
               value={wifiPassword}
               onChangeText={setWifiPassword}
-              placeholder="Senha do Wi-Fi"
+              placeholder="Digite a senha do Wi-Fi"
               placeholderTextColor={theme.colors.textTertiary}
               secureTextEntry
+              autoCapitalize="none"
               style={[
                 styles.input,
                 {
