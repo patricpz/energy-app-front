@@ -1,11 +1,11 @@
 import { XIcon } from "phosphor-react-native";
 import React from "react";
 import {
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { useTheme } from "../context/ThemeContext";
 

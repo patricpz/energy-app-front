@@ -4,7 +4,7 @@ import { getCurrentUser } from './auth';
 
 export interface EnergyYearData {
   year: number;
-  totalConsumption: number;
+  consumeKwh: number;
   averageConsumption: number;
   cost?: number;
   [key: string]: any;
@@ -14,7 +14,7 @@ export interface EnergyMonthData {
   year: number;
   month: number;
   monthName?: string;
-  totalConsumption: number;
+  consumeKwh: number;
   averageConsumption: number;
   cost?: number;
   [key: string]: any;
@@ -25,7 +25,7 @@ export interface EnergyDayData {
   month: number;
   day: number;
   date?: string;
-  totalConsumption: number;
+  consumeKwh: number;
   averageConsumption: number;
   cost?: number;
   [key: string]: any;
@@ -37,7 +37,7 @@ export interface EnergyHourData {
   day: number;
   hour: number;
   dateTime?: string;
-  consumption: number;
+  consumeKwh: number;
   cost?: number;
   [key: string]: any;
 }
@@ -86,8 +86,8 @@ export async function getEnergyYears(params?: {
 
 /**
  * Relatório de meses
- * GET api/users/:userId/energyYears/:yearId/energyMonths/:monthId
- * Nota: A API retorna todos os meses do ano, então usamos apenas yearId
+ * GET api/users/:userId/energyYears/:year/energyMonths
+ * Retorna todos os meses do ano especificado
  */
 export async function getEnergyMonths(params?: {
   year?: number;
@@ -99,50 +99,29 @@ export async function getEnergyMonths(params?: {
     const userId = await getUserId();
     const year = params?.year || params?.yearId || new Date().getFullYear();
     
-    // Se monthId for fornecido, buscar apenas aquele mês
+    // Rota hierárquica: /users/:userId/energyYears/:year/energyMonths
+    const response = await api.get(`/users/${userId}/energyYears/${year}/energyMonths`);
+    console.log('Fetched energy months:', response.data);
+    console.log('Energy months array length:', response.data?.length || 0);
+    
+    let data = Array.isArray(response.data) ? response.data : [response.data];
+    
+    // Filtrar por intervalo de meses se especificado
     if (params?.startMonth && params?.endMonth) {
-      // Buscar múltiplos meses
-      const allMonths: EnergyMonthData[] = [];
-      for (let month = params.startMonth; month <= params.endMonth; month++) {
-        try {
-          const response = await api.get(`/users/${userId}/energyYears/${year}/energyMonths/${month}`);
-          const monthData = Array.isArray(response.data) ? response.data : [response.data];
-          allMonths.push(...monthData);
-          console.log(`Fetched energy month ${month}:`, monthData);
-        } catch (error: any) {
-          console.warn(`Error fetching month ${month}:`, error.message);
-        }
-      }
-      console.log('Fetched all energy months:', allMonths);
-      console.log('Energy months array length:', allMonths?.length || 0);
-      return allMonths;
+      data = data.filter((item: EnergyMonthData) => 
+        item.month >= params.startMonth! && item.month <= params.endMonth!
+      );
     } else if (params?.startMonth) {
-      // Buscar um mês específico
-      const month = params.startMonth;
-      const response = await api.get(`/users/${userId}/energyYears/${year}/energyMonths/${month}`);
-      console.log(`Fetched energy month ${month}:`, response.data);
-      const data = Array.isArray(response.data) ? response.data : [response.data];
-      console.log('Energy months array length:', data?.length || 0);
-      if (Array.isArray(data)) {
-        data.forEach((item: any, index: number) => {
-          console.log(`Energy month [${index}]:`, item);
-        });
-      }
-      return data;
-    } else {
-      // Buscar apenas o mês atual
-      const currentMonth = new Date().getMonth() + 1;
-      const response = await api.get(`/users/${userId}/energyYears/${year}/energyMonths/${currentMonth}`);
-      console.log(`Fetched energy month ${currentMonth} (current):`, response.data);
-      const data = Array.isArray(response.data) ? response.data : [response.data];
-      console.log('Energy months array length:', data?.length || 0);
-      if (Array.isArray(data)) {
-        data.forEach((item: any, index: number) => {
-          console.log(`Energy month [${index}]:`, item);
-        });
-      }
-      return data;
+      data = data.filter((item: EnergyMonthData) => item.month === params.startMonth);
     }
+    
+    if (Array.isArray(data)) {
+      data.forEach((item: any, index: number) => {
+        console.log(`Energy month [${index}]:`, item);
+      });
+    }
+    
+    return data;
   } catch (error: any) {
     console.error('Error fetching energy months:', error);
     if (error.response) {

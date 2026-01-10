@@ -1,14 +1,6 @@
 import {
-  DesktopIcon,
-  DeviceMobileIcon,
-  FanIcon,
-  LightbulbIcon,
   PlusIcon,
-  SnowflakeIcon,
-  TelevisionSimpleIcon,
-  ThermometerIcon,
-  TrashIcon,
-  WashingMachineIcon
+  TrashIcon
 } from 'phosphor-react-native';
 
 import React, { useEffect, useState } from 'react';
@@ -21,42 +13,12 @@ import { deleteDevice, DomesticEquipment, getDevices } from '../services/devices
 
 type FilterType = 'todos' | 'ligados' | 'desligados';
 
-// Função para selecionar ícone baseado no nome do dispositivo
-function getDeviceIcon(name: string) {
-  const nameLower = name.toLowerCase();
-  
-  if (nameLower.includes('tv') || nameLower.includes('televisão') || nameLower.includes('televisao')) {
-    return (color: string, size: number) => <TelevisionSimpleIcon color={color} size={size} weight="duotone" />;
-  }
-  if (nameLower.includes('geladeira') || nameLower.includes('refrigerador') || nameLower.includes('fridge')) {
-    return (color: string, size: number) => <SnowflakeIcon color={color} size={size} weight="duotone" />;
-  }
-  if (nameLower.includes('ar') || nameLower.includes('ac') || nameLower.includes('condicionado') || nameLower.includes('climatizador')) {
-    return (color: string, size: number) => <ThermometerIcon color={color} size={size} weight="duotone" />;
-  }
-  if (nameLower.includes('pc') || nameLower.includes('computador') || nameLower.includes('notebook') || nameLower.includes('laptop')) {
-    return (color: string, size: number) => <DesktopIcon color={color} size={size} weight="duotone" />;
-  }
-  if (nameLower.includes('lavar') || nameLower.includes('lavadora') || nameLower.includes('maquina')) {
-    return (color: string, size: number) => <WashingMachineIcon color={color} size={size} weight="duotone" />;
-  }
-  if (nameLower.includes('luz') || nameLower.includes('lâmpada') || nameLower.includes('lampada') || nameLower.includes('light')) {
-    return (color: string, size: number) => <LightbulbIcon color={color} size={size} weight="duotone" />;
-  }
-  if (nameLower.includes('ventilador') || nameLower.includes('fan')) {
-    return (color: string, size: number) => <FanIcon color={color} size={size} weight="duotone" />;
-  }
-  
-  // Ícone padrão
-  return (color: string, size: number) => <DeviceMobileIcon color={color} size={size} weight="duotone" />;
-}
 
 // Converter dados da API para o formato da interface
 function mapApiDeviceToDevice(apiDevice: DomesticEquipment): Device {
   return {
     id: apiDevice.id || '',
     name: apiDevice.name,
-    icon: getDeviceIcon(apiDevice.name),
     consumption: apiDevice.consumeKwh,
     online: true, // Por padrão, assumimos que está online (pode ser ajustado quando houver integração com status real)
     active: true, // Por padrão, assumimos que está ativo (pode ser ajustado quando houver integração com status real)
@@ -271,9 +233,6 @@ export default function Devices() {
                 <View key={device.id} style={[styles(theme).deviceCard, { backgroundColor: colors.card }]}>
                   <View style={styles(theme).deviceInfoRow}>
                     {/* Ícone */}
-                    <View style={styles(theme).deviceIconContainer}>
-                      {device.icon(colors.text, 32)}
-                    </View>
 
                     {/* Informações */}
                     <View style={styles(theme).deviceInfo}>
@@ -340,7 +299,6 @@ export default function Devices() {
 interface Device {
   id: string | number;
   name: string;
-  icon: (color: string, size: number) => React.ReactNode;
   consumption: number;
   online: boolean;
   active: boolean;

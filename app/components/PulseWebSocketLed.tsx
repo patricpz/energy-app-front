@@ -30,10 +30,8 @@ const PulseWebSocketLed: React.FC<PulseWebSocketLedProps> = ({
         ws.onmessage = (event) => {
             const data = String(event.data ?? "");
             
-            // Incrementa o contador a cada mensagem recebida
             incrementPulse();
             
-            // Chama o callback se fornecido
             onPulse?.(data);
         };
 
