@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import EnergyMeter from "../components/EnergyMeter";
 import AppCard from "../components/GlobalCard";
@@ -7,10 +7,45 @@ import Header from "../components/Header";
 import PulseWebSocketLed from "../components/PulseWebSocketLed";
 import { useTheme } from "../context/ThemeContext";
 import SafeScreen from "../SafeScreen";
+import { getEnergyMonths } from "../services/energyReport";
 
 export default function Home() {
     const { theme } = useTheme();
     const [pulseActive, setPulseActive] = useState(false);
+    const [energyCost, setEnergyCost] = useState<string>("R$ 0.00");
+
+    // Buscar account do mês atual
+    useEffect(() => {
+        const fetchMonthData = async () => {
+            try {
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth() + 1;
+                
+                const monthsData = await getEnergyMonths({
+                    year: currentYear,
+                    startMonth: currentMonth,
+                    endMonth: currentMonth,
+                });
+                
+                if (monthsData && monthsData.length > 0) {
+                    const monthData = monthsData[0];
+                    const account = (monthData as any).account;
+                    if (account !== undefined && account !== null) {
+                        // Formatar como moeda brasileira
+                        const formattedValue = typeof account === 'number' 
+                            ? account.toFixed(2).replace('.', ',')
+                            : account.toString();
+                        setEnergyCost(`R$ ${formattedValue}`);
+                    }
+                }
+            } catch (err) {
+                console.error('Erro ao buscar custo de energia:', err);
+            }
+        };
+        
+        fetchMonthData();
+    }, []);
 
     return (
         <SafeScreen>
@@ -34,7 +69,7 @@ export default function Home() {
                         <View style={styles.cardRow}>
                             <AppCard
                                 title="Custo de Energia"
-                                value="R$ 7.78"
+                                value={energyCost}
                                 subtitle="kWh"
                                 icon="flash"
                                 color="#153ffaff"
@@ -76,7 +111,7 @@ const styles = StyleSheet.create({
     },
     sectionGraphic: {
         marginTop: 20,
-        padding: 16,
+        padding: 0,
     },
     pulseRow: {
         flexDirection: "row",

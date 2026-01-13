@@ -4,6 +4,7 @@ import { usePulseCounter } from "../context/PulseCounterContext";
 import { useTheme } from "../context/ThemeContext";
 import useAuth from "../hooks/useAuth";
 import { useEnergyData } from "../hooks/useEnergyData";
+import { getEnergyMonths } from "../services/energyReport";
 
 interface EnergyMeterProps {
     pulseActive?: boolean;
@@ -16,7 +17,7 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
     const [blinkAnim] = useState(new Animated.Value(1));
     const [displayValue, setDisplayValue] = useState(0.0);
     const { user, logout } = useAuth();
-    
+    const [monthExpenseKwh, setMonthExpenseKwh] = useState<number | null>(null);
     
     const colors = theme.colors;
     
@@ -27,13 +28,48 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
         : "#1E293B"; 
     const secondaryTextColor = theme.mode === "light" ? "#000000" : "#FFFFFF";
 
-    // Smooth transition for the meter value
-    // Prioriza o valor do contador de pulsos, se disponível
+    // Buscar expenseKwh do mês atual
     useEffect(() => {
-        const pulseValue = getEnergyValue();
-        const targetValue = pulseValue > 0 
-            ? parseFloat(pulseValue.toFixed(1))
-            : (data ? parseFloat(data.currentUsage.toFixed(1)) : 0);
+        const fetchMonthData = async () => {
+            try {
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth() + 1;
+                
+                const monthsData = await getEnergyMonths({
+                    year: currentYear,
+                    startMonth: currentMonth,
+                    endMonth: currentMonth,
+                });
+                
+                if (monthsData && monthsData.length > 0) {
+                    const monthData = monthsData[0];
+                    const expenseKwh = (monthData as any).expenseKwh || monthData.consumeKwh || 0;
+                    setMonthExpenseKwh(expenseKwh);
+                }
+            } catch (err) {
+                console.error('Erro ao buscar dados do mês:', err);
+            }
+        };
+        
+        fetchMonthData();
+    }, []);
+
+    // Smooth transition for the meter value
+    // Usa expenseKwh do mês se disponível, caso contrário prioriza o valor do contador de pulsos
+    useEffect(() => {
+        let targetValue = 0;
+        
+        if (monthExpenseKwh !== null) {
+            // Usar expenseKwh do mês
+            targetValue = parseFloat(monthExpenseKwh.toFixed(1));
+        } else {
+            // Fallback: prioriza o valor do contador de pulsos, se disponível
+            const pulseValue = getEnergyValue();
+            targetValue = pulseValue > 0 
+                ? parseFloat(pulseValue.toFixed(1))
+                : (data ? parseFloat(data.currentUsage.toFixed(1)) : 0);
+        }
         
         const interval = setInterval(() => {
             setDisplayValue(prev => {
@@ -48,7 +84,7 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
         }, 30);
         
         return () => clearInterval(interval);
-    }, [data?.currentUsage, pulseCount, getEnergyValue]);
+    }, [monthExpenseKwh, data?.currentUsage, pulseCount, getEnergyValue]);
 
     // Piscar o pulso vermelho quando ativo
     useEffect(() => {
@@ -96,7 +132,7 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
                     { color: displayTextColor }
                 ]}>
                     {
-                        displayValue.toFixed(1).padStart(8, "0")
+                        displayValue.toFixed(5).padStart(8, "0")
                     }
                 </Text>
             </View>

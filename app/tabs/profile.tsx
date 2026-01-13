@@ -6,10 +6,9 @@ import React, { useState } from "react";
 import {
     ScrollView,
     StyleSheet,
-    Switch,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ModalBLEConnection from "../components/ModalBLEConnection";
@@ -56,6 +55,10 @@ export default function Profile() {
         router.replace("/stacks/auth/login");
     }
 
+    const handleConfinguration = () => {
+        router.push("/stacks/BLEScreen");
+    }
+
     return (
 
         <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={["top"]}>
@@ -69,7 +72,7 @@ export default function Profile() {
                             <Sun size={24} color={theme.colors.text} weight="regular" />
                         )}
                     </TouchableOpacity>
-                    <TouchableOpacity>
+                    <TouchableOpacity onPress={handleConfinguration}>
                         <Gear size={24} color={theme.colors.text} weight="regular" />
                     </TouchableOpacity>
                 </View>
@@ -137,7 +140,7 @@ export default function Profile() {
 
                 {/* Notifications Card */}
                 <View style={[styles.card, dynamicStyles.card]}>
-                    <Text style={[styles.cardTitle, dynamicStyles.cardTitle]}>Notificações</Text>
+                    {/* <Text style={[styles.cardTitle, dynamicStyles.cardTitle]}>Notificações</Text>
                     <View style={styles.notificationItem}>
                         <View style={styles.notificationContent}>
                             <Text style={[styles.notificationTitle, dynamicStyles.notificationTitle]}>
@@ -154,7 +157,7 @@ export default function Profile() {
                             thumbColor={theme.colors.buttonText}
                             ios_backgroundColor={theme.colors.switchInactive}
                         />
-                    </View>
+                    </View> */}
 
 
                     <TouchableOpacity
@@ -165,23 +168,6 @@ export default function Profile() {
                             Conectar ESP32 via BLE
                         </Text>
                     </TouchableOpacity>
-                    {/* <View style={styles.notificationItem}>
-                        <View style={styles.notificationContent}>
-                            <Text style={[styles.notificationTitle, dynamicStyles.notificationTitle]}>
-                                Notificações por e-mail
-                            </Text>
-                            <Text style={[styles.notificationDescription, dynamicStyles.notificationDescription]}>
-                                Receba alertas por e-mail
-                            </Text>
-                        </View>
-                        <Switch
-                            value={emailNotifications}
-                            onValueChange={setEmailNotifications}
-                            trackColor={{ false: theme.colors.switchInactive, true: theme.colors.switchActive }}
-                            thumbColor={theme.colors.buttonText}
-                            ios_backgroundColor={theme.colors.switchInactive}
-                        />
-                    </View> */}
                 </View>
 
                 {/* Sign Out Button */}

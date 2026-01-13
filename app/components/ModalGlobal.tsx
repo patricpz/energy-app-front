@@ -1,11 +1,13 @@
 import { XIcon } from "phosphor-react-native";
 import React from "react";
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useTheme } from "../context/ThemeContext";
 
@@ -32,33 +34,43 @@ export default function ModalGlobal({
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.backdrop}>
-        <View
-          style={[
-            styles.modalContainer,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          {/* HEADER */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>
-              {title || ""}
-            </Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        <View style={styles.backdrop}>
+          <View
+            style={[
+              styles.modalContainer,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            {/* HEADER */}
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>
+                {title ?? ""}
+              </Text>
 
-            <TouchableOpacity onPress={onClose}>
-              <XIcon size={28} color={colors.text} />
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity onPress={onClose}>
+                <XIcon size={28} color={colors.text} />
+              </TouchableOpacity>
+            </View>
 
-          {/* CONTENT */}
-          <View style={styles.content} pointerEvents="box-none">
-            {children}
+            {/* CONTENT */}
+            <View style={styles.content}>
+              {children}
+            </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
+
 
 const styles = StyleSheet.create({
   backdrop: {

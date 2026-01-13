@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from "react";
 import { ViewStyle } from "react-native";
-import { usePulseCounter } from "../context/PulseCounterContext";
 
 type PulseWebSocketLedProps = {
     url?: string;
@@ -15,7 +14,6 @@ const PulseWebSocketLed: React.FC<PulseWebSocketLedProps> = ({
     pulseDurationMs = 150,
     onPulse,
 }) => {
-    const { incrementPulse } = usePulseCounter();
     const wsRef = useRef<WebSocket | null>(null);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -24,29 +22,25 @@ const PulseWebSocketLed: React.FC<PulseWebSocketLedProps> = ({
         wsRef.current = ws;
 
         ws.onopen = () => {
-            console.log('WebSocket connected');
+            console.log('teste');
         };
 
         ws.onmessage = (event) => {
             const data = String(event.data ?? "");
             
-            incrementPulse();
             
             onPulse?.(data);
         };
 
         ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
+            console.error('');
         };
 
-        ws.onclose = () => {
-            console.log('WebSocket disconnected');
-        };
 
         return () => {
             wsRef.current?.close();
         };
-    }, [url, incrementPulse, onPulse]);
+    }, [url, onPulse]);
 
     return null;
 };

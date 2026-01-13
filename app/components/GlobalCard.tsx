@@ -17,7 +17,7 @@ export default function GlobalCard({
     value,
     subtitle,
     icon,
-    color,
+    color = "",
     variant = "default",
 }: GlobalCardProps) {
     const { theme } = useTheme();

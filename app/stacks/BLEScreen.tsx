@@ -1,4 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { ArrowLeft } from "phosphor-react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   PermissionsAndroid,
@@ -13,8 +15,8 @@ import {
 import base64 from "react-native-base64";
 import { BleManager, Device } from "react-native-ble-plx";
 import { NetworkInfo } from "react-native-network-info";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../context/ThemeContext";
-import ModalGlobal from "./ModalGlobal";
 
 type ConnectionStatus = "desconectado" | "escaneando" | "conectando" | "conectado" | "erro";
 
@@ -31,13 +33,9 @@ const BOX_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a9";
 
 const BLTManager = new BleManager();
 
-interface ModalBLEConnectionProps {
-  visible: boolean;
-  onClose: () => void;
-}
-
-export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnectionProps) {
+export default function BLEScreen() {
   const { theme } = useTheme();
+  const router = useRouter();
 
   const [status, setStatus] = useState<ConnectionStatus>("desconectado");
   const [mensagem, setMensagem] = useState("");
@@ -47,10 +45,6 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
   const [isScanning, setIsScanning] = useState(false);
   const [wifiSSID, setWifiSSID] = useState("");
   const [wifiPassword, setWifiPassword] = useState("");
-  const scrollViewRef = useRef<ScrollView>(null);
-  const ssidInputRef = useRef<TextInput>(null);
-  const passwordInputRef = useRef<TextInput>(null);
-  const wifiSectionRef = useRef<View>(null);
 
   const statusColor = useMemo(() => {
     switch (status) {
@@ -66,12 +60,21 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
     }
   }, [status, theme.colors]);
 
-  // Limpar conexões quando o modal fechar
-  useEffect(() => {
-    if (!visible) {
-      desconectar();
-    }
-  }, [visible]);
+  // Limpar conexões quando a tela perder o foco
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        // Cleanup quando a tela perder o foco
+        if (connectedDevice) {
+          BLTManager.cancelTransaction("messagetransaction");
+          BLTManager.cancelTransaction("boxtransaction");
+          BLTManager.cancelDeviceConnection(connectedDevice.id).catch(() => {
+            // Ignorar erros de desconexão no cleanup
+          });
+        }
+      };
+    }, [connectedDevice])
+  );
 
   const registrarLog = useCallback((origem: LogEntry["origem"], mensagem: string) => {
     setLog((prev) => [
@@ -580,8 +583,6 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
   }, [wifiSSID, wifiPassword, connectedDevice, registrarLog, requestPermissions]);
 
   useEffect(() => {
-    if (!visible) return;
-
     const solicitarPermissao = async () => {
       if (Platform.OS === "android") {
         const granted = await PermissionsAndroid.request(
@@ -605,22 +606,26 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
     };
 
     solicitarPermissao();
-  }, [visible, registrarLog]);
+  }, [registrarLog]);
 
   return (
-    <ModalGlobal
-      visible={visible}
-      onClose={onClose}
-      title="Conexão BLE com ESP32"
-    >
-      <ScrollView
-        ref={scrollViewRef}
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={true}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={["top"]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.header }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color={theme.colors.text} weight="regular" />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Configuração BLE</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.select({ ios: "padding", android: undefined })}
         style={{ flex: 1 }}
       >
+        <ScrollView
+          contentContainerStyle={[styles.container, { paddingHorizontal: 20, paddingTop: 20 }]}
+          showsVerticalScrollIndicator={true}
+        >
           <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
             Faça o pareamento inicial via Bluetooth Low Energy, acompanhe o status e envie comandos.
           </Text>
@@ -751,24 +756,18 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
             )}
           </View>
 
-          <View ref={wifiSectionRef} style={styles.section}>
+          <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
               Configurar Wi-Fi no ESP32
             </Text>
 
             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>SSID (Nome da rede)</Text>
             <TextInput
-              ref={ssidInputRef}
               value={wifiSSID}
               onChangeText={setWifiSSID}
               placeholder="Digite o SSID da rede Wi-Fi"
               placeholderTextColor={theme.colors.textTertiary}
               autoCapitalize="none"
-              onFocus={() => {
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 300);
-              }}
               style={[
                 styles.input,
                 {
@@ -781,18 +780,12 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
 
             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Senha</Text>
             <TextInput
-              ref={passwordInputRef}
               value={wifiPassword}
               onChangeText={setWifiPassword}
               placeholder="Digite a senha do Wi-Fi"
               placeholderTextColor={theme.colors.textTertiary}
               secureTextEntry
               autoCapitalize="none"
-              onFocus={() => {
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 300);
-              }}
               style={[
                 styles.input,
                 {
@@ -829,13 +822,31 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
             </TouchableOpacity>
           </View>
         </ScrollView>
-    </ModalGlobal>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  backButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
   container: {
-    paddingBottom: 100,
+    paddingBottom: 20,
     gap: 20,
   },
   subtitle: {

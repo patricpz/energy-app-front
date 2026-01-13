@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import {
-    BarChart
-} from "react-native-gifted-charts";
+import { ActivityIndicator, Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { useTheme } from "../context/ThemeContext";
-import { EnergyDayData, EnergyHourData, EnergyMonthData, getEnergyDays, getEnergyHours, getEnergyMonths } from "../services/energyReport";
+import { EnergyDayData, EnergyHourData, EnergyMonthData, EnergyYearData, getEnergyDays, getEnergyMonths } from "../services/energyReport";
+import EnergyBarChart from "./EnergyBarChart";
+import GlobalCard from "./GlobalCard";
 
 type PeriodFilter = "dia" | "semana" | "mes" | "ano";
 
@@ -16,13 +15,14 @@ export default function GraphicMeter() {
     const screenWidth = Dimensions.get("window").width;
 
     const [selectedPoint, setSelectedPoint] = useState<any>(null);
+    const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [currentTime, setCurrentTime] = useState("");
     const [currentDate, setCurrentDate] = useState("");
-    const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("dia");
+    const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("semana");
     const [showMoreInfo, setShowMoreInfo] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [apiData, setApiData] = useState<EnergyHourData[] | EnergyDayData[] | EnergyMonthData[]>([]);
+    const [apiData, setApiData] = useState<EnergyHourData[] | EnergyDayData[] | EnergyMonthData[] | EnergyYearData[]>([]);
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
 
@@ -41,9 +41,10 @@ export default function GraphicMeter() {
         return () => clearInterval(interval);
     }, []);
 
-    const diasSemana = ["Seg", "Ter", "Qua", "Qui", "Sex"];
+    const diasSemana = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
     const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-    const horasDia = [0, 6, 12, 18];
+    // Todas as horas do dia (0-23)
+    const horasDia = Array.from({ length: 24 }, (_, i) => i);
 
 
     // Função para buscar dados da API
@@ -58,58 +59,68 @@ export default function GraphicMeter() {
             const currentDay = now.getDate();
 
             switch (periodFilter) {
-                case "dia":
-                    // Buscar horas do dia atual usando a rota hierárquica
-                    const hoursData = await getEnergyHours({
-                        yearId: currentYear,
-                        monthId: currentMonth,
-                        dayId: currentDay,
-                    });
-                    setApiData(hoursData);
-                    break;
+                // case "dia":
+                //     // Buscar todas as horas do dia atual (0-23)
+                //     const hoursData = await getEnergyHours({
+                //         yearId: currentYear,
+                //         monthId: currentMonth,
+                //         dayId: currentDay,
+                //     });
+                //     setApiData(hoursData);
+                //     break;
 
                 case "semana":
-                    // Buscar segunda a sexta da semana atual
+                    // Buscar domingo a sábado da semana atual
                     const today = new Date(now);
                     const dayOfWeek = today.getDay(); // 0 = domingo, 1 = segunda, etc.
-                    // Calcular quantos dias voltar para chegar na segunda-feira
-                    // Se domingo (0), volta 6 dias; se segunda (1), volta 0 dias; se terça (2), volta 1 dia, etc.
-                    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                    const monday = new Date(today);
-                    monday.setDate(today.getDate() - daysToMonday);
-                    const friday = new Date(monday);
-                    friday.setDate(monday.getDate() + 4); // Sexta-feira (segunda + 4 dias)
+                    // Calcular quantos dias voltar para chegar no domingo
+                    const daysToSunday = dayOfWeek; // Se domingo (0), volta 0 dias; se segunda (1), volta 1 dia, etc.
+                    const sunday = new Date(today);
+                    sunday.setDate(today.getDate() - daysToSunday);
+                    const saturday = new Date(sunday);
+                    saturday.setDate(sunday.getDate() + 6); // Sábado (domingo + 6 dias)
                     
-                    // Buscar dias de segunda a sexta
+                    // Buscar dias de domingo a sábado
                     const daysData = await getEnergyDays({
-                        yearId: monday.getFullYear(),
-                        monthId: monday.getMonth() + 1,
-                        startDate: monday.toISOString().split('T')[0],
-                        endDate: friday.toISOString().split('T')[0],
+                        yearId: sunday.getFullYear(),
+                        monthId: sunday.getMonth() + 1,
+                        startDate: sunday.toISOString().split('T')[0],
+                        endDate: saturday.toISOString().split('T')[0],
                     });
-                    setApiData(daysData);
+                    setApiData(Array.isArray(daysData) ? daysData : []);
                     break;
 
                 case "mes":
-                    // Buscar todos os dias do mês selecionado
-                    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+                    // Buscar apenas os dias do mês atual até o dia de hoje
+                    const nowDate = new Date();
+                    const currentYearForMonth = nowDate.getFullYear();
+                    const currentMonthForMonth = nowDate.getMonth() + 1;
+                    const currentDayForMonth = nowDate.getDate();
+                    
+                    // Se o mês selecionado é o mês atual, mostrar apenas até hoje
+                    // Caso contrário, mostrar todos os dias do mês selecionado
+                    let endDay = new Date(selectedYear, selectedMonth, 0).getDate();
+                    if (selectedYear === currentYearForMonth && selectedMonth === currentMonthForMonth) {
+                        endDay = currentDayForMonth;
+                    }
+                    
                     const monthDaysData = await getEnergyDays({
                         yearId: selectedYear,
                         monthId: selectedMonth,
                         startDay: 1,
-                        endDay: daysInMonth,
+                        endDay: endDay,
                     });
-                    setApiData(monthDaysData);
+                    setApiData(Array.isArray(monthDaysData) ? monthDaysData : []);
                     break;
 
                 case "ano":
-                    // Buscar todos os meses do ano selecionado
+                    // Buscar todos os meses do ano selecionado (janeiro a dezembro)
                     const monthsData = await getEnergyMonths({
                         yearId: selectedYear,
                         startMonth: 1,
                         endMonth: 12,
                     });
-                    setApiData(monthsData);
+                    setApiData(Array.isArray(monthsData) ? monthsData : []);
                     break;
             }
         } catch (err: any) {
@@ -129,38 +140,55 @@ export default function GraphicMeter() {
     }, [periodFilter, selectedYear, selectedMonth]);
 
     // Atualização automática em tempo real (a cada 30 segundos para consumo do dia)
-    useEffect(() => {
-        if (periodFilter === "dia") {
-            const interval = setInterval(() => {
-                fetchData();
-            }, 30000); // Atualiza a cada 30 segundos
+    // useEffect(() => {
+    //     if (periodFilter === "dia") {
+    //         const interval = setInterval(() => {
+    //             fetchData();
+    //         }, 30000); // Atualiza a cada 30 segundos
 
-            return () => clearInterval(interval);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [periodFilter]);
+    //         return () => clearInterval(interval);
+    //     }
+    //     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // }, [periodFilter]);
 
     // Converter dados da API para o formato do gráfico
     const baseData = useMemo(() => {
         if (loading || apiData.length === 0) {
             // Retornar dados vazios enquanto carrega ou se não houver dados
             switch (periodFilter) {
-                case "dia":
-                    return horasDia.map((hora) => ({
-                        value: 0,
-                        label: `${hora.toString().padStart(2, "0")}:00`,
-                        hour: hora,
-                    }));
+                // case "dia":
+                //     return horasDia.map((hora) => ({
+                //         value: 0,
+                //         label: `${hora.toString().padStart(2, "0")}:00`,
+                //         hour: hora,
+                //     }));
                 case "semana":
                     return diasSemana.map((dia) => ({ value: 0, label: dia }));
-                case "mes":
-                    // Retornar dias do mês (1 até último dia)
-                    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-                    return Array.from({ length: daysInMonth }, (_, i) => ({
-                        value: 0,
-                        label: (i + 1).toString(),
-                    }));
+                case "mes": {
+                    // Retornar apenas os dias até hoje se for o mês atual
+                    const nowDate = new Date();
+                    const currentYearForMonth = nowDate.getFullYear();
+                    const currentMonthForMonth = nowDate.getMonth() + 1;
+                    const currentDayForMonth = nowDate.getDate();
+                    
+                    let daysToShow = new Date(selectedYear, selectedMonth, 0).getDate();
+                    if (selectedYear === currentYearForMonth && selectedMonth === currentMonthForMonth) {
+                        daysToShow = currentDayForMonth;
+                    }
+                    
+                    return Array.from({ length: daysToShow }, (_, i) => {
+                        const day = i + 1;
+                        const date = new Date(selectedYear, selectedMonth - 1, day);
+                        const dayLabel = date.getDate().toString().padStart(2, "0");
+                        const monthLabel = (date.getMonth() + 1).toString().padStart(2, "0");
+                        return {
+                            value: 0,
+                            label: `${dayLabel}/${monthLabel}`,
+                        };
+                    });
+                }
                 case "ano":
+                    // Retornar todos os meses de janeiro a dezembro
                     return meses.map((mes) => ({ value: 0, label: mes }));
                 default:
                     return [];
@@ -168,91 +196,115 @@ export default function GraphicMeter() {
         }
 
         switch (periodFilter) {
-            case "dia":
-                // Mapear dados de horas (apenas 00:00, 06:00, 12:00, 18:00)
-                const hoursData = apiData as EnergyHourData[];
-                const hourMap = new Map<number, number>();
-                hoursData.forEach((item) => {
-                    const consumptionValue = item.consumption || (item as any).expenseKwh || (item as any).totalConsumption || (item as any).averageConsumption || 0;
-                    hourMap.set(item.hour, consumptionValue);
-                });
-                
-                return horasDia.map((hora) => {
-                    const consumption = hourMap.get(hora) || 0;
-                    return {
-                        value: consumption,
-                        label: `${hora.toString().padStart(2, "0")}:00`,
-                        hour: hora,
-                    };
-                });
+            // case "dia":
+            //     // Mapear dados de horas (todas as horas do dia: 0-23)
+            //     const hoursData = apiData as EnergyHourData[];
+            //     const hourMap = new Map<number, number>();
+            //     hoursData.forEach((item) => {
+            //         const consumptionValue = item.consumeKwh || (item as any).expenseKwh || (item as any).totalConsumption || (item as any).averageConsumption || 0;
+            //         hourMap.set(item.hour, consumptionValue);
+            //     });
+            //     
+            //     return horasDia.map((hora) => {
+            //         const consumption = hourMap.get(hora) || 0;
+            //         return {
+            //             value: consumption,
+            //             label: `${hora.toString().padStart(2, "0")}:00`,
+            //             hour: hora,
+            //         };
+            //     });
 
             case "semana":
-                // Mapear dados de dias (segunda a sexta)
-                const daysData = apiData as EnergyDayData[];
-                const sortedDays = daysData
-                    .sort((a, b) => {
+                // Mapear dados de dias (domingo a sábado)
+                const daysData = (Array.isArray(apiData) ? apiData : []) as EnergyDayData[];
+                const sortedDays = daysData.length > 0
+                    ? [...daysData].sort((a, b) => {
                         const dateA = new Date(a.year, a.month - 1, a.day);
                         const dateB = new Date(b.year, b.month - 1, b.day);
                         return dateA.getTime() - dateB.getTime();
                     })
-                    .slice(-5); // Pegar últimos 5 dias
+                    : [];
                 
-                // Garantir que temos 5 dias (segunda a sexta)
-                const weekData = Array.from({ length: 5 }, (_, index) => {
-                    const dayData = sortedDays[index];
-                    if (dayData) {
-                        const consumptionValue = (dayData as any).expenseKwh || dayData.totalConsumption || dayData.averageConsumption || 0;
-                        return {
-                            value: consumptionValue,
-                            label: diasSemana[index],
-                        };
-                    } else {
-                        return {
-                            value: 0,
-                            label: diasSemana[index],
-                        };
-                    }
+                // Criar um mapa de data para consumo
+                const weekDayMap = new Map<string, number>();
+                sortedDays.forEach((dayData) => {
+                    const dateKey = `${dayData.year}-${dayData.month}-${dayData.day}`;
+                    const consumptionValue = (dayData as any).expenseKwh || dayData.totalConsumption || dayData.averageConsumption || 0;
+                    weekDayMap.set(dateKey, consumptionValue);
+                });
+                
+                // Calcular domingo da semana atual
+                const today = new Date();
+                const currentDayOfWeek = today.getDay();
+                const daysToSunday = currentDayOfWeek;
+                const weekStart = new Date(today);
+                weekStart.setDate(today.getDate() - daysToSunday);
+                
+                // Garantir que temos 7 dias (domingo a sábado)
+                const weekData = Array.from({ length: 7 }, (_, index) => {
+                    const currentDay = new Date(weekStart);
+                    currentDay.setDate(weekStart.getDate() + index);
+                    const dateKey = `${currentDay.getFullYear()}-${currentDay.getMonth() + 1}-${currentDay.getDate()}`;
+                    const consumptionValue = weekDayMap.get(dateKey) || 0;
+                    
+                    return {
+                        value: consumptionValue,
+                        label: diasSemana[index],
+                    };
                 });
                 
                 return weekData;
 
-            case "mes":
-                // Mapear dados de dias do mês
-                const monthDaysData = apiData as EnergyDayData[];
-                const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-                const dayMap = new Map<number, number>();
+            case "mes": {
+                // Mapear dados de dias do mês (apenas até o dia atual)
+                const monthDaysData = (Array.isArray(apiData) ? apiData : []) as EnergyDayData[];
+                const nowDate = new Date();
+                const currentYearForMonth = nowDate.getFullYear();
+                const currentMonthForMonth = nowDate.getMonth() + 1;
+                const currentDayForMonth = nowDate.getDate();
                 
-                console.log('Mapping month days data:', monthDaysData);
-                console.log('Selected month:', selectedMonth, 'Days in month:', daysInMonth);
+                // Calcular quantos dias mostrar
+                let daysToShow = new Date(selectedYear, selectedMonth, 0).getDate();
+                if (selectedYear === currentYearForMonth && selectedMonth === currentMonthForMonth) {
+                    daysToShow = currentDayForMonth;
+                }
                 
+                const monthDayMap = new Map<number, number>();
+                
+                // Mapear todos os dados recebidos da API
                 monthDaysData.forEach((item) => {
-                    const consumptionValue = (item as any).expenseKwh || item.totalConsumption || item.averageConsumption || 0;
-                    console.log(`Day ${item.day}: consumptionValue = ${consumptionValue}`);
-                    dayMap.set(item.day, consumptionValue);
+                    const consumptionValue = item.consumeKwh || (item as any).expenseKwh || item.averageConsumption || 0;
+                    monthDayMap.set(item.day, consumptionValue);
                 });
                 
-                const result = Array.from({ length: daysInMonth }, (_, i) => {
+                // Gerar array com os dias do mês até hoje (com tempo no eixo X)
+                const result = Array.from({ length: daysToShow }, (_, i) => {
                     const day = i + 1;
-                    const value = dayMap.get(day) || 0;
+                    const value = monthDayMap.get(day) || 0;
+                    // Mostrar o dia com formato "DD/MM" no eixo X
+                    const date = new Date(selectedYear, selectedMonth - 1, day);
+                    const dayLabel = date.getDate().toString().padStart(2, "0");
+                    const monthLabel = (date.getMonth() + 1).toString().padStart(2, "0");
                     return {
                         value: value,
-                        label: day.toString(),
+                        label: `${dayLabel}/${monthLabel}`,
                     };
                 });
                 
-                console.log('Mapped result for month:', result);
                 return result;
+            }
 
             case "ano":
-                // Mapear dados de meses do ano
-                const monthsData = apiData as EnergyMonthData[];
+                // Mapear dados de meses do ano (janeiro a dezembro)
+                const monthsData = (Array.isArray(apiData) ? apiData : []) as EnergyMonthData[];
                 const monthMap = new Map<number, number>();
                 
                 monthsData.forEach((item) => {
-                    const consumptionValue = (item as any).expenseKwh || item.totalConsumption || item.averageConsumption || 0;
+                    const consumptionValue = item.consumeKwh || (item as any).expenseKwh || item.averageConsumption || 0;
                     monthMap.set(item.month, consumptionValue);
                 });
                 
+                // Retornar todos os meses de janeiro a dezembro
                 return meses.map((mesNome, index) => {
                     const month = index + 1;
                     return {
@@ -268,48 +320,47 @@ export default function GraphicMeter() {
 
     const liveData = useMemo(() => {
         return baseData.map((item, index) => {
-            const isSelected = selectedPoint?.index === index;
+            const isSelected = selectedIndex === index;
             const hourLabel = (item as any).hour || item.label || `${index}:00`;
-            const hasValue = item.value > 0;
             
             return {
                 ...item,
                 frontColor: isSelected ? colors.primaryLight || colors.primary : colors.primary,
-                topLabelComponent: () => (isSelected && hasValue) ? (
-                    <View
-                        style={[
-                            styles.tooltipContainer,
-                            {
-                                backgroundColor: "#FFFFFF",
-                                borderColor: "#E0E0E0",
-                            },
-                        ]}
-                    >
-                        <Text style={[styles.tooltipText, { color: "#000000" }]}>
-                            {item.value.toFixed(3)} kWh
-                        </Text>
-                    </View>
-                ) : null,
+                topLabel: isSelected ? item.value.toFixed(3) : undefined,
+                topLabelTextStyle: isSelected ? {
+                    color: colors.text || "#000000",
+                    fontSize: 12,
+                    fontWeight: "600",
+                } : undefined,
             };
         });
-    }, [baseData, selectedPoint, colors, periodFilter]);
+    }, [baseData, selectedIndex, colors, periodFilter]);
 
     useEffect(() => {
         setSelectedPoint(null);
+        setSelectedIndex(null);
     }, [periodFilter]);
 
     // Função para lidar com o clique na barra
-    const handleBarPress = (item: any, index: number) => {
+    const handleBarPress = (index: number) => {
+        console.log('Bar pressed - index:', index);
+        
         // Se clicar na mesma barra, deseleciona
-        if (selectedPoint?.index === index) {
+        if (selectedIndex === index) {
+            setSelectedIndex(null);
             setSelectedPoint(null);
         } else {
             // Seleciona a nova barra
-            setSelectedPoint({ 
-                ...item, 
-                index,
-                value: item.value,
-            });
+            const barItem = baseData[index];
+            if (barItem) {
+                setSelectedIndex(index);
+                setSelectedPoint({ 
+                    ...barItem, 
+                    index,
+                    value: barItem.value || 0,
+                });
+                console.log('Bar selected:', { index, value: barItem.value });
+            }
         }
     };
 
@@ -355,27 +406,57 @@ export default function GraphicMeter() {
     const trendAnalysis = "-2.2%";
 
     const getSpacing = () => {
-        if (periodFilter === "dia") return 8;
-        if (periodFilter === "semana") return 12;
-        if (periodFilter === "mes") return 2;
-        return 8; // ano
+        // if (periodFilter === "dia") return 4; // Reduzido para caber 24 horas
+        if (periodFilter === "semana") return 10;
+        if (periodFilter === "mes") return 2; // Espaçamento mínimo para mês
+        return 20; // ano - aumentado para dar mais espaço entre anos
     };
 
     const spacingValue = getSpacing();
 
     const getBarWidth = () => {
-        if (periodFilter === "dia") return 20;
-        if (periodFilter === "semana") return 18;
-        if (periodFilter === "mes") return 6;
-        return 12; // ano
+        // if (periodFilter === "dia") {
+        //     // Para 24 horas, calcular largura dinâmica
+        //     const availableWidth = screenWidth - 72;
+        //     const totalSpacing = 23 * 4; // 23 espaços entre 24 barras
+        //     const calculatedWidth = Math.floor((availableWidth - totalSpacing - 12 - 24 - 32) / 24);
+        //     return Math.max(8, Math.min(calculatedWidth, 16)); // Mínimo 8, máximo 16
+        // }
+        if (periodFilter === "semana") {
+            // Calcular largura dinâmica baseada na largura da tela e número de dias (7)
+            const availableWidth = screenWidth - 72; // Largura disponível menos padding
+            const totalSpacing = 6 * 10; // 6 espaços entre 7 barras
+            const calculatedWidth = Math.floor((availableWidth - totalSpacing - 12 - 24 - 32) / 7);
+            return Math.max(16, Math.min(calculatedWidth, 24)); // Mínimo 16, máximo 24
+        }
+        if (periodFilter === "mes") {
+            // Para mês, usar largura fixa pequena já que teremos muitos dias
+            // O gráfico será scrollável horizontalmente
+            return 5;
+        }
+        return 30; // ano - aumentado para melhor visualização
     };
 
     const barWidthValue = getBarWidth();
 
     const containerChartWidth = Math.min(screenWidth - 72, 460);
-    const computedChartWidth =
-        liveData.length * (barWidthValue + spacingValue) + 12 + 24 + 32;
-    const chartWidth = Math.max(containerChartWidth, computedChartWidth);
+    // Para o mês, garantir largura suficiente para TODOS os dias do mês
+    let computedChartWidth;
+    if (periodFilter === "mes") {
+        // Calcular largura necessária para todos os dias do mês
+        const daysInMonth = liveData.length;
+        const minWidthPerDay = barWidthValue + spacingValue;
+        // Calcular largura total: (largura da barra + spacing) * número de dias + espaçamentos iniciais/finais
+        computedChartWidth = (daysInMonth * minWidthPerDay) + 12 + 24 + 32;
+        // Garantir que seja pelo menos a largura da tela para scroll funcionar
+        // Mas não limitar o máximo - deixar o gráfico expandir para mostrar todos os dias
+        computedChartWidth = Math.max(computedChartWidth, screenWidth);
+    } else {
+        computedChartWidth = liveData.length * (barWidthValue + spacingValue) + 12 + 24 + 32;
+    }
+    const chartWidth = periodFilter === "mes" 
+        ? computedChartWidth // Para mês, usar a largura calculada completa
+        : Math.max(containerChartWidth, computedChartWidth);
 
     const FilterBadge = ({
         label,
@@ -424,19 +505,19 @@ export default function GraphicMeter() {
                         Consumo Tempo Real
                     </Text>
                 </View>
-                {periodFilter === "dia" && (
+                {/* {periodFilter === "dia" && (
                     <View style={styles.lastUpdateRow}>
                         <Text style={[styles.lastUpdateLabel, { color: colors.textSecondary }]}>
                             Última atualização: {currentTime}
                         </Text>
                     </View>
-                )}
+                )} */}
                 <View style={styles.filterRow}>
-                    <FilterBadge
+                    {/* <FilterBadge
                         label="Dia"
                         isActive={periodFilter === "dia"}
                         onPress={() => setPeriodFilter("dia")}
-                    />
+                    /> */}
                     <FilterBadge
                         label="Semana"
                         isActive={periodFilter === "semana"}
@@ -455,24 +536,62 @@ export default function GraphicMeter() {
                 </View>
             </View>
             
-            {/* Seletor de ano quando o filtro for "ano" ou "mes" */}
-            {(periodFilter === "ano" || periodFilter === "mes") && (
+            {/* Seletor de ano quando o filtro for "ano" */}
+            {periodFilter === "ano" && (
                 <View style={styles.yearSelectorContainer}>
                     <Text style={[styles.yearSelectorLabel, { color: colors.textSecondary }]}>
-                        {periodFilter === "ano" ? "Ano:" : "Ano/Mês:"}
+                        Ano:
                     </Text>
                     <View style={styles.yearSelectorRow}>
                         <TouchableOpacity
                             onPress={() => {
-                                if (periodFilter === "ano") {
+                                setSelectedYear(selectedYear - 1);
+                            }}
+                            style={[styles.yearSelectorButton, { borderColor: colors.border }]}
+                        >
+                            <Ionicons name="chevron-back" size={20} color={colors.text} />
+                        </TouchableOpacity>
+                        
+                        <View style={[styles.yearSelectorValue, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                            <Text style={[styles.yearSelectorText, { color: colors.text }]}>
+                                {selectedYear.toString()}
+                            </Text>
+                        </View>
+                        
+                        <TouchableOpacity
+                            onPress={() => {
+                                const currentYear = new Date().getFullYear();
+                                if (selectedYear < currentYear) {
+                                    setSelectedYear(selectedYear + 1);
+                                }
+                            }}
+                            style={[
+                                styles.yearSelectorButton, 
+                                { borderColor: colors.border },
+                                selectedYear >= new Date().getFullYear() && { opacity: 0.5 }
+                            ]}
+                            disabled={selectedYear >= new Date().getFullYear()}
+                        >
+                            <Ionicons name="chevron-forward" size={20} color={colors.text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+            
+            {/* Seletor de ano/mês quando o filtro for "mes" */}
+            {periodFilter === "mes" && (
+                <View style={styles.yearSelectorContainer}>
+                    <Text style={[styles.yearSelectorLabel, { color: colors.textSecondary }]}>
+                        Ano/Mês:
+                    </Text>
+                    <View style={styles.yearSelectorRow}>
+                        <TouchableOpacity
+                            onPress={() => {
+                                if (selectedMonth === 1) {
                                     setSelectedYear(selectedYear - 1);
+                                    setSelectedMonth(12);
                                 } else {
-                                    if (selectedMonth === 1) {
-                                        setSelectedYear(selectedYear - 1);
-                                        setSelectedMonth(12);
-                                    } else {
-                                        setSelectedMonth(selectedMonth - 1);
-                                    }
+                                    setSelectedMonth(selectedMonth - 1);
                                 }
                             }}
                             style={[styles.yearSelectorButton, { borderColor: colors.border }]}
@@ -482,10 +601,7 @@ export default function GraphicMeter() {
                         
                         <View style={[styles.yearSelectorValue, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                             <Text style={[styles.yearSelectorText, { color: colors.text }]}>
-                                {periodFilter === "ano" 
-                                    ? selectedYear.toString()
-                                    : `${meses[selectedMonth - 1]}/${selectedYear}`
-                                }
+                                {`${meses[selectedMonth - 1]}/${selectedYear}`}
                             </Text>
                         </View>
                         
@@ -494,32 +610,21 @@ export default function GraphicMeter() {
                                 const currentYear = new Date().getFullYear();
                                 const currentMonth = new Date().getMonth() + 1;
                                 
-                                if (periodFilter === "ano") {
-                                    if (selectedYear < currentYear) {
+                                if (selectedYear < currentYear || (selectedYear === currentYear && selectedMonth < currentMonth)) {
+                                    if (selectedMonth === 12) {
                                         setSelectedYear(selectedYear + 1);
-                                    }
-                                } else {
-                                    if (selectedYear < currentYear || (selectedYear === currentYear && selectedMonth < currentMonth)) {
-                                        if (selectedMonth === 12) {
-                                            setSelectedYear(selectedYear + 1);
-                                            setSelectedMonth(1);
-                                        } else {
-                                            setSelectedMonth(selectedMonth + 1);
-                                        }
+                                        setSelectedMonth(1);
+                                    } else {
+                                        setSelectedMonth(selectedMonth + 1);
                                     }
                                 }
                             }}
                             style={[
                                 styles.yearSelectorButton, 
                                 { borderColor: colors.border },
-                                periodFilter === "ano" && selectedYear >= new Date().getFullYear() && { opacity: 0.5 },
-                                periodFilter === "mes" && selectedYear >= new Date().getFullYear() && selectedMonth >= new Date().getMonth() + 1 && { opacity: 0.5 }
+                                selectedYear >= new Date().getFullYear() && selectedMonth >= new Date().getMonth() + 1 && { opacity: 0.5 }
                             ]}
-                            disabled={
-                                periodFilter === "ano" 
-                                    ? selectedYear >= new Date().getFullYear()
-                                    : selectedYear >= new Date().getFullYear() && selectedMonth >= new Date().getMonth() + 1
-                            }
+                            disabled={selectedYear >= new Date().getFullYear() && selectedMonth >= new Date().getMonth() + 1}
                         >
                             <Ionicons name="chevron-forward" size={20} color={colors.text} />
                         </TouchableOpacity>
@@ -557,39 +662,19 @@ export default function GraphicMeter() {
                         </Text>
                     </View>
                 ) : (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={false}>
-                        <BarChart
-                            data={liveData}
-                            barWidth={barWidthValue}
-                            spacing={spacingValue}
-                            initialSpacing={12}
-                            endSpacing={24}
-                            barBorderRadius={6}
-                            frontColor={chartColor}
-                            height={220}
-                            width={chartWidth}
-                            maxValue={(() => {
-                                if (liveData.length === 0) return 0.01;
-                                const maxVal = Math.max(...liveData.map(item => item.value), 0);
-                                // Se o valor máximo for muito pequeno, usar um mínimo de 0.01 para visualização
-                                return maxVal > 0 ? Math.max(maxVal * 1.1, 0.01) : 0.01;
-                            })()}
-                            noOfSections={6}
-                            yAxisLabelSuffix=""
-                            rulesColor={gridColor}
-                            rulesType="dashed"
-                            rulesThickness={1}
-                            yAxisColor={axisColor}
-                            xAxisColor={axisColor}
-                            xAxisThickness={1}
-                            yAxisThickness={1}
-                            yAxisLabelWidth={32}
-                            yAxisTextStyle={{ color: colors.textSecondary, fontSize: 11 }}
-                            xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 11 }}
-                            xAxisLabelsHeight={20}
-                            onPress={handleBarPress}
-                        />
-                    </ScrollView>
+                    <EnergyBarChart
+                        data={liveData}
+                        selectedIndex={selectedIndex}
+                        periodFilter={periodFilter}
+                        colors={colors}
+                        chartColor={chartColor}
+                        gridColor={gridColor}
+                        axisColor={axisColor}
+                        barWidth={barWidthValue}
+                        spacing={spacingValue}
+                        chartWidth={chartWidth}
+                        onBarPress={handleBarPress}
+                    />
                 )}
             </View>
 
@@ -617,7 +702,7 @@ export default function GraphicMeter() {
             </View>
 
             {/* Painel de informações adicionais (aparece quando expandido) */}
-            {showMoreInfo && periodFilter === "dia" && (
+            {showMoreInfo && (
                 <View style={[styles.expandedInfoContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     {/* Consumo Atual Grande */}
                     <View style={styles.currentConsumptionContainer}>
@@ -631,21 +716,7 @@ export default function GraphicMeter() {
 
                     {/* Linha de Tendência */}
                     <View style={styles.trendContainer}>
-                        <View style={styles.trendLeft}>
-                            <View style={[styles.trendCircle, { backgroundColor: colors.primary }]} />
-                            <Text style={[styles.trendLabel, { color: colors.textSecondary }]}>
-                                Consumo Atual
-                            </Text>
-                        </View>
-                        <View style={[styles.trendLine, { backgroundColor: colors.primary + "40" }]} />
-                        <View style={styles.trendRight}>
-                            <Text style={[styles.trendLabel, { color: colors.textSecondary }]}>
-                                Tendência
-                            </Text>
-                            <Text style={[styles.trendValue, { color: colors.text }]}>
-                                {currentConsumption} kWh
-                            </Text>
-                        </View>
+
                     </View>
 
                     {/* Cards de Resumo */}
@@ -682,73 +753,44 @@ export default function GraphicMeter() {
             {showMoreInfo && (
                 <View style={styles.moreInfoContainer}>
                     {/* Primeira linha: Análise de tendências (largura total) */}
-                    <View style={[styles.infoCard, styles.infoCardFull, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        <View style={styles.infoCardHeader}>
-                            <Text style={[styles.infoCardTitle, { color: colors.textSecondary }]}>
-                                Análise de tendências
-                            </Text>
-                            <Ionicons name="trending-down-outline" size={20} color={colors.success} />
-                        </View>
-                        <Text style={[styles.infoCardSubtitle, { color: colors.textTertiary }]}>
-                            vs Mês Passado
-                        </Text>
-                        <Text style={[styles.infoCardValue, { color: colors.success }]}>
-                            {trendAnalysis}
-                        </Text>
-                    </View>
+                    <GlobalCard
+                        title="Análise de tendências"
+                        value={trendAnalysis}
+                        subtitle="vs Mês Passado"
+                        icon="trending-down-outline"
+                        color={colors.success}
+                        variant="large"
+                    />
 
                     {/* Segunda linha: Uso médio e Uso máximo */}
                     <View style={styles.infoCardRow}>
-                        <View style={[styles.infoCard, styles.infoCardHalf, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                            <View style={styles.infoCardHeader}>
-                                <Text style={[styles.infoCardTitle, { color: colors.textSecondary }]}>
-                                    Uso médio
-                                </Text>
-                                <Ionicons name="stats-chart" size={20} color={colors.primary} />
-                            </View>
-                            <Text style={[styles.infoCardValue, { color: colors.primary }]}>
-                                {averageConsumption} kWh
-                            </Text>
-                        </View>
-
-                        <View style={[styles.infoCard, styles.infoCardHalf, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                            <View style={styles.infoCardHeader}>
-                                <Text style={[styles.infoCardTitle, { color: colors.textSecondary }]}>
-                                    Uso máximo
-                                </Text>
-                                <Ionicons name="flash" size={20} color={colors.warning} />
-                            </View>
-                            <Text style={[styles.infoCardValue, { color: colors.warning }]}>
-                                {maxConsumption} kWh
-                            </Text>
-                        </View>
+                        <GlobalCard
+                            title="Uso médio"
+                            value={`${averageConsumption} kWh`}
+                            icon="stats-chart"
+                            color={colors.primary}
+                        />
+                        <GlobalCard
+                            title="Uso máximo"
+                            value={`${maxConsumption} kWh`}
+                            icon="flash"
+                            color={colors.warning}
+                        />
                     </View>
 
                     {/* Terceira linha: Eficiência e Impacto nos custos */}
                     <View style={styles.infoCardRow}>
-                        <View style={[styles.infoCard, styles.infoCardHalf, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                            <View style={styles.infoCardHeader}>
-                                <Text style={[styles.infoCardTitle, { color: colors.textSecondary }]}>
-                                    Eficiência
-                                </Text>
-                                <Ionicons name="leaf-outline" size={20} color={colors.success} />
-                            </View>
-                            <Text style={[styles.infoCardValue, { color: colors.success }]}>
-                                {efficiency}%
-                            </Text>
-                        </View>
-
-                        <View style={[styles.infoCard, styles.infoCardHalf, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                            <View style={styles.infoCardHeader}>
-                                <Text style={[styles.infoCardTitle, { color: colors.textSecondary }]}>
-                                    Impacto nos custos
-                                </Text>
-                                <Ionicons name="cash-outline" size={20} color={colors.text} />
-                            </View>
-                            <Text style={[styles.infoCardValue, { color: colors.text }]}>
-                                R$ {costImpact}
-                            </Text>
-                        </View>
+                        <GlobalCard
+                            title="Eficiência"
+                            value={`${efficiency}%`}
+                            icon="leaf-outline"
+                            color={colors.success}
+                        />
+                        <GlobalCard
+                            title="Impacto nos custos"
+                            value={`R$ ${costImpact}`}
+                            color={colors.text}
+                        />
                     </View>
                 </View>
             )}
@@ -1055,35 +1097,6 @@ const styles = StyleSheet.create({
     infoCardRow: {
         flexDirection: "row",
         gap: 12,
-    },
-    infoCard: {
-        borderRadius: 12,
-        padding: 16,
-        borderWidth: 1,
-    },
-    infoCardFull: {
-        width: "100%",
-    },
-    infoCardHalf: {
-        flex: 1,
-    },
-    infoCardHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 8,
-    },
-    infoCardTitle: {
-        fontSize: 13,
-        fontWeight: "500",
-    },
-    infoCardSubtitle: {
-        fontSize: 11,
-        marginBottom: 4,
-    },
-    infoCardValue: {
-        fontSize: 18,
-        fontWeight: "700",
     },
     loadingContainer: {
         height: 220,
