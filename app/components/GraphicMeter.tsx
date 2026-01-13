@@ -18,7 +18,7 @@ export default function GraphicMeter() {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [currentTime, setCurrentTime] = useState("");
     const [currentDate, setCurrentDate] = useState("");
-    const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("semana");
+    const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("dia");
     const [showMoreInfo, setShowMoreInfo] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -69,25 +69,21 @@ export default function GraphicMeter() {
                 //     setApiData(hoursData);
                 //     break;
 
-                case "semana":
-                    // Buscar domingo a sábado da semana atual
+                case "dia":
+                    // Buscar apenas o dia atual
                     const today = new Date(now);
-                    const dayOfWeek = today.getDay(); // 0 = domingo, 1 = segunda, etc.
-                    // Calcular quantos dias voltar para chegar no domingo
-                    const daysToSunday = dayOfWeek; // Se domingo (0), volta 0 dias; se segunda (1), volta 1 dia, etc.
-                    const sunday = new Date(today);
-                    sunday.setDate(today.getDate() - daysToSunday);
-                    const saturday = new Date(sunday);
-                    saturday.setDate(sunday.getDate() + 6); // Sábado (domingo + 6 dias)
+                    const currentYearForDay = today.getFullYear();
+                    const currentMonthForDay = today.getMonth() + 1;
+                    const currentDayForDay = today.getDate();
                     
-                    // Buscar dias de domingo a sábado
-                    const daysData = await getEnergyDays({
-                        yearId: sunday.getFullYear(),
-                        monthId: sunday.getMonth() + 1,
-                        startDate: sunday.toISOString().split('T')[0],
-                        endDate: saturday.toISOString().split('T')[0],
+                    // Buscar dados do dia atual
+                    const dayData = await getEnergyDays({
+                        yearId: currentYearForDay,
+                        monthId: currentMonthForDay,
+                        startDay: currentDayForDay,
+                        endDay: currentDayForDay,
                     });
-                    setApiData(Array.isArray(daysData) ? daysData : []);
+                    setApiData(Array.isArray(dayData) ? dayData : []);
                     break;
 
                 case "mes":
@@ -162,8 +158,12 @@ export default function GraphicMeter() {
                 //         label: `${hora.toString().padStart(2, "0")}:00`,
                 //         hour: hora,
                 //     }));
-                case "semana":
-                    return diasSemana.map((dia) => ({ value: 0, label: dia }));
+                case "dia":
+                    // Retornar apenas o dia atual
+                    const nowDate = new Date();
+                    const dayLabel = nowDate.getDate().toString().padStart(2, "0");
+                    const monthLabel = (nowDate.getMonth() + 1).toString().padStart(2, "0");
+                    return [{ value: 0, label: `${dayLabel}/${monthLabel}` }];
                 case "mes": {
                     // Retornar apenas os dias até hoje se for o mês atual
                     const nowDate = new Date();
@@ -214,46 +214,34 @@ export default function GraphicMeter() {
             //         };
             //     });
 
-            case "semana":
-                // Mapear dados de dias (domingo a sábado)
-                const daysData = (Array.isArray(apiData) ? apiData : []) as EnergyDayData[];
-                const sortedDays = daysData.length > 0
-                    ? [...daysData].sort((a, b) => {
-                        const dateA = new Date(a.year, a.month - 1, a.day);
-                        const dateB = new Date(b.year, b.month - 1, b.day);
-                        return dateA.getTime() - dateB.getTime();
-                    })
-                    : [];
-                
-                // Criar um mapa de data para consumo
-                const weekDayMap = new Map<string, number>();
-                sortedDays.forEach((dayData) => {
-                    const dateKey = `${dayData.year}-${dayData.month}-${dayData.day}`;
-                    const consumptionValue = (dayData as any).expenseKwh || dayData.totalConsumption || dayData.averageConsumption || 0;
-                    weekDayMap.set(dateKey, consumptionValue);
-                });
-                
-                // Calcular domingo da semana atual
+            case "dia":
+                // Mapear dados do dia atual
+                const dayData = (Array.isArray(apiData) ? apiData : []) as EnergyDayData[];
                 const today = new Date();
-                const currentDayOfWeek = today.getDay();
-                const daysToSunday = currentDayOfWeek;
-                const weekStart = new Date(today);
-                weekStart.setDate(today.getDate() - daysToSunday);
+                const currentDay = today.getDate();
+                const currentMonth = today.getMonth() + 1;
+                const currentYear = today.getFullYear();
                 
-                // Garantir que temos 7 dias (domingo a sábado)
-                const weekData = Array.from({ length: 7 }, (_, index) => {
-                    const currentDay = new Date(weekStart);
-                    currentDay.setDate(weekStart.getDate() + index);
-                    const dateKey = `${currentDay.getFullYear()}-${currentDay.getMonth() + 1}-${currentDay.getDate()}`;
-                    const consumptionValue = weekDayMap.get(dateKey) || 0;
-                    
-                    return {
-                        value: consumptionValue,
-                        label: diasSemana[index],
-                    };
-                });
+                // Encontrar os dados do dia atual
+                const todayData = dayData.find((item) => 
+                    item.day === currentDay && 
+                    item.month === currentMonth && 
+                    item.year === currentYear
+                );
                 
-                return weekData;
+                const consumptionValue = todayData 
+                    ? ((todayData as any).expenseKwh || todayData.totalConsumption || todayData.averageConsumption || 0)
+                    : 0;
+                
+                // Formatar label como "DD/MM"
+                const dayLabel = currentDay.toString().padStart(2, "0");
+                const monthLabel = currentMonth.toString().padStart(2, "0");
+                
+                return [{
+                    value: consumptionValue,
+                    label: `${dayLabel}/${monthLabel}`,
+                    day: currentDay,
+                }];
 
             case "mes": {
                 // Mapear dados de dias do mês (apenas até o dia atual)
@@ -345,10 +333,17 @@ export default function GraphicMeter() {
     const handleBarPress = (index: number) => {
         console.log('Bar pressed - index:', index);
         
+        // Verificar se o índice é válido
+        if (index < 0 || index >= baseData.length) {
+            console.warn('Índice inválido:', index);
+            return;
+        }
+        
         // Se clicar na mesma barra, deseleciona
         if (selectedIndex === index) {
             setSelectedIndex(null);
             setSelectedPoint(null);
+            console.log('Barra deselecionada');
         } else {
             // Seleciona a nova barra
             const barItem = baseData[index];
@@ -359,7 +354,13 @@ export default function GraphicMeter() {
                     index,
                     value: barItem.value || 0,
                 });
-                console.log('Bar selected:', { index, value: barItem.value });
+                console.log('Barra selecionada:', { 
+                    index, 
+                    value: barItem.value,
+                    label: barItem.label 
+                });
+            } else {
+                console.warn('Item da barra não encontrado no índice:', index);
             }
         }
     };
@@ -407,7 +408,7 @@ export default function GraphicMeter() {
 
     const getSpacing = () => {
         // if (periodFilter === "dia") return 4; // Reduzido para caber 24 horas
-        if (periodFilter === "semana") return 10;
+        if (periodFilter === "dia") return 20; // Espaçamento para dia
         if (periodFilter === "mes") return 2; // Espaçamento mínimo para mês
         return 20; // ano - aumentado para dar mais espaço entre anos
     };
@@ -422,12 +423,11 @@ export default function GraphicMeter() {
         //     const calculatedWidth = Math.floor((availableWidth - totalSpacing - 12 - 24 - 32) / 24);
         //     return Math.max(8, Math.min(calculatedWidth, 16)); // Mínimo 8, máximo 16
         // }
-        if (periodFilter === "semana") {
-            // Calcular largura dinâmica baseada na largura da tela e número de dias (7)
+        if (periodFilter === "dia") {
+            // Calcular largura dinâmica baseada na largura da tela para 1 barra
             const availableWidth = screenWidth - 72; // Largura disponível menos padding
-            const totalSpacing = 6 * 10; // 6 espaços entre 7 barras
-            const calculatedWidth = Math.floor((availableWidth - totalSpacing - 12 - 24 - 32) / 7);
-            return Math.max(16, Math.min(calculatedWidth, 24)); // Mínimo 16, máximo 24
+            const calculatedWidth = Math.floor((availableWidth - 12 - 24 - 32) / 1);
+            return Math.max(40, Math.min(calculatedWidth, 80)); // Mínimo 40, máximo 80 para uma barra grande
         }
         if (periodFilter === "mes") {
             // Para mês, usar largura fixa pequena já que teremos muitos dias
@@ -519,9 +519,9 @@ export default function GraphicMeter() {
                         onPress={() => setPeriodFilter("dia")}
                     /> */}
                     <FilterBadge
-                        label="Semana"
-                        isActive={periodFilter === "semana"}
-                        onPress={() => setPeriodFilter("semana")}
+                        label="Dia"
+                        isActive={periodFilter === "dia"}
+                        onPress={() => setPeriodFilter("dia")}
                     />
                     <FilterBadge
                         label="Mês"
@@ -635,6 +635,68 @@ export default function GraphicMeter() {
             {error && (
                 <View style={[styles.errorContainer, { backgroundColor: colors.error + "20" }]}>
                         <Text style={[styles.retryText, { color: colors.primary }]}>Sem relatorio no momento</Text>
+                </View>
+            )}
+
+            {/* Div informativa acima do gráfico quando uma barra é selecionada */}
+            {selectedPoint && selectedIndex !== null && (
+                <View
+                    style={[
+                        styles.selectedInfoCard,
+                    ]}
+                >
+                    <View style={styles.selectedInfoContent}>
+                        <View style={styles.selectedInfoRow}>
+                            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                            <Text style={[styles.selectedInfoLabel, { color: colors.textSecondary }]}>
+                                Dia:
+                            </Text>
+                            <Text style={[styles.selectedInfoValue, { color: colors.text }]}>
+                                {(() => {
+                                    // Extrair o dia do selectedPoint ou do baseData
+                                    const item = baseData[selectedIndex];
+                                    const apiItem = apiData[selectedIndex] as any;
+                                    
+                                    // Tentar obter o dia da API primeiro (mais confiável)
+                                    if (apiItem && apiItem.day) {
+                                        if (periodFilter === "dia") {
+                                            return item?.label || `Dia ${apiItem.day}`;
+                                        } else if (periodFilter === "mes") {
+                                            return `Dia ${apiItem.day}`;
+                                        } else if (periodFilter === "ano") {
+                                            return item?.label || `Dia ${apiItem.day}`;
+                                        }
+                                    }
+                                    
+                                    // Fallback: usar o label do item ou índice
+                                    if (item && item.label) {
+                                        return item.label;
+                                    }
+                                    
+                                    // Último fallback
+                                    return `Item ${selectedIndex + 1}`;
+                                })()}
+                            </Text>
+                        </View>
+                        <View style={styles.selectedInfoRow}>
+                            <Ionicons name="flash-outline" size={18} color={colors.primary} />
+                            <Text style={[styles.selectedInfoLabel, { color: colors.textSecondary }]}>
+                                Consumo:
+                            </Text>
+                            <Text style={[styles.selectedInfoValue, { color: colors.primary, fontWeight: "700" }]}>
+                                {selectedPoint.value?.toFixed(3) || "0.000"} kWh
+                            </Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity
+                        onPress={() => {
+                            setSelectedIndex(null);
+                            setSelectedPoint(null);
+                        }}
+                        style={styles.closeInfoButton}
+                    >
+                        <Ionicons name="close" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
                 </View>
             )}
 
@@ -1133,5 +1195,44 @@ const styles = StyleSheet.create({
     retryText: {
         fontSize: 12,
         fontWeight: "600",
+    },
+    selectedInfoCard: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: 12,
+        marginBottom: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+        backgroundColor: "#FFF"
+    },
+    selectedInfoContent: {
+        flex: 1,
+        flexDirection: "row",
+        gap: 16,
+    },
+    selectedInfoRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+    },
+    selectedInfoLabel: {
+        fontSize: 13,
+        fontWeight: "500",
+    },
+    selectedInfoValue: {
+        fontSize: 14,
+        fontWeight: "600",
+    },
+    closeInfoButton: {
+        padding: 4,
+        marginLeft: 8,
     },
 });

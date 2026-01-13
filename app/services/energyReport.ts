@@ -168,14 +168,21 @@ export async function getEnergyDays(params?: {
         endDate: params?.endDate,
       }
     });
-    console.log('Fetched energy days:', response.data);
-    console.log('Energy days array length:', response.data?.length || 0);
-    if (Array.isArray(response.data)) {
-      response.data.forEach((item: any, index: number) => {
+    console.log('Fetched energy days (full response):', JSON.stringify(response.data, null, 2));
+    
+    // A API retorna { data: { average, data: [...], total } }
+    // Precisamos acessar response.data.data para obter o array de dias
+    const responseData = response.data?.data || response.data;
+    console.log('Energy days data array:', JSON.stringify(responseData, null, 2));
+    console.log('Energy days array length:', Array.isArray(responseData) ? responseData.length : 0);
+    
+    if (Array.isArray(responseData)) {
+      responseData.forEach((item: any, index: number) => {
         console.log(`Energy day [${index}]:`, item);
       });
     }
-    return response.data;
+    
+    return Array.isArray(responseData) ? responseData : (Array.isArray(response.data) ? response.data : []);
   } catch (error: any) {
     console.error('Error fetching energy days:', error);
     if (error.response) {

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
+  Alert,
   PermissionsAndroid,
   Platform,
   ScrollView,
@@ -47,6 +47,8 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
   const [isScanning, setIsScanning] = useState(false);
   const [wifiSSID, setWifiSSID] = useState("");
   const [wifiPassword, setWifiPassword] = useState("");
+  const [wifiStatus, setWifiStatus] = useState<"idle" | "enviando" | "aguardando" | "conectado" | "erro">("idle");
+  const [wifiIP, setWifiIP] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const ssidInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
@@ -65,13 +67,6 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
         return theme.colors.textSecondary;
     }
   }, [status, theme.colors]);
-
-  // Limpar conexões quando o modal fechar
-  useEffect(() => {
-    if (!visible) {
-      desconectar();
-    }
-  }, [visible]);
 
   const registrarLog = useCallback((origem: LogEntry["origem"], mensagem: string) => {
     setLog((prev) => [
@@ -189,6 +184,85 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
     }, 10000);
   }, [requestPermissions, registrarLog, dispositivos.length]);
 
+  // Processar notificações do ESP32 relacionadas ao WiFi
+  const processarNotificacaoWiFi = useCallback((mensagem: string) => {
+    try {
+      // Tentar fazer parse do JSON
+      const response = JSON.parse(mensagem);
+      
+      console.log("📡 Notificação recebida:", response);
+      
+      // BTCOMMAND_SUCCESS (cmd: 2) - WiFi conectado com sucesso
+      if (response.cmd === 2) {
+        if (response.data && typeof response.data === 'string' && response.data.includes("WiFi OK")) {
+          // Extrair IP da mensagem
+          const ipMatch = response.data.match(/IP: ([\d.]+)/);
+          const ipAddress = ipMatch ? ipMatch[1] : null;
+          
+          setWifiIP(ipAddress);
+          setWifiStatus("conectado");
+          
+          registrarLog("esp32", `✅ WiFi conectado com sucesso!${ipAddress ? ` IP: ${ipAddress}` : ''}`);
+          
+          // Mostrar mensagem de sucesso na tela
+          const mensagemSucesso = ipAddress 
+            ? `WiFi conectado com sucesso!\n\nIP do ESP32: ${ipAddress}`
+            : "WiFi conectado com sucesso!";
+          
+          Alert.alert(
+            "✅ Sucesso!",
+            mensagemSucesso,
+            [
+              {
+                text: "OK",
+                style: "default"
+              }
+            ],
+            { cancelable: false }
+          );
+          
+          // Limpar campos após sucesso (opcional)
+          // setWifiSSID("");
+          // setWifiPassword("");
+        } else {
+          // Outro tipo de sucesso
+          registrarLog("esp32", `Sucesso: ${response.data}`);
+        }
+      }
+      // BTCOMMAND_ERROR (cmd: 1) - Erro
+      else if (response.cmd === 1) {
+        const errorCode = response.data;
+        
+        if (errorCode === 4) {
+          // BTERROR_WIFI_CONNECTION
+          setWifiStatus("erro");
+          registrarLog("esp32", "❌ Erro: Falha ao conectar ao WiFi");
+        } else {
+          setWifiStatus("erro");
+          registrarLog("esp32", `❌ Erro recebido: ${errorCode}`);
+        }
+      }
+      // BTCOMMAND_MESSAGE (cmd: 13) - Mensagem genérica
+      else if (response.cmd === 13) {
+        registrarLog("esp32", `Mensagem: ${response.data}`);
+        
+        // Se receber "Credenciais OK", significa que o ESP32 recebeu as credenciais
+        // mas ainda está tentando conectar
+        if (response.data && response.data.includes("Credenciais")) {
+          setWifiStatus("aguardando");
+          registrarLog("sistema", "Aguardando conexão WiFi (pode levar até 10 segundos)...");
+        }
+      }
+      // BTCOMMAND_WIFI_LIST (cmd: 14) - Lista de redes WiFi
+      else if (response.cmd === 14) {
+        registrarLog("esp32", `Redes WiFi disponíveis: ${JSON.stringify(response.data)}`);
+      }
+    } catch (err) {
+      // Se não for JSON válido, apenas logar como mensagem normal
+      console.log("Mensagem não-JSON recebida:", mensagem);
+    }
+  }, [registrarLog]);
+
   // Connect the device and start monitoring characteristics
   const connectDevice = useCallback(async (device: Device) => {
     const deviceName = device.name || device.id;
@@ -226,7 +300,7 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
 
       registrarLog("sistema", `Service encontrado: ${SERVICE_UUID}`);
 
-      // Monitor characteristics
+      // Habilitar notificações e monitorar características
       deviceWithServices.monitorCharacteristicForService(
         SERVICE_UUID,
         MESSAGE_UUID,
@@ -236,9 +310,16 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
             return;
           }
           if (characteristic?.value != null) {
-            const decoded = base64.decode(characteristic.value);
-            registrarLog("esp32", decoded);
-            console.log("Message update received:", decoded);
+            try {
+              const decoded = base64.decode(characteristic.value);
+              registrarLog("esp32", decoded);
+              console.log("Message update received:", decoded);
+              
+              // Processar notificação JSON
+              processarNotificacaoWiFi(decoded);
+            } catch (err) {
+              console.error("Erro ao processar notificação:", err);
+            }
           }
         },
         "messagetransaction",
@@ -250,7 +331,7 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
       setStatus("erro");
       setConnectedDevice(null);
     }
-  }, [registrarLog]);
+  }, [registrarLog, processarNotificacaoWiFi]);
 
   // Handle the device disconnection
   const desconectar = useCallback(async () => {
@@ -275,7 +356,17 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
 
     setConnectedDevice(null);
     setStatus("desconectado");
+    // Resetar status do WiFi ao desconectar
+    setWifiStatus("idle");
+    setWifiIP(null);
   }, [connectedDevice, registrarLog]);
+
+  // Limpar conexões quando o modal fechar
+  useEffect(() => {
+    if (!visible) {
+      desconectar();
+    }
+  }, [visible, desconectar]);
 
   const enviarMensagem = useCallback(async () => {
     if (!mensagem.trim()) {
@@ -470,9 +561,13 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
       return;
     }
 
-    // Criar JSON com cmd: 5, ssid e password
+    // Resetar status do WiFi
+    setWifiStatus("enviando");
+    setWifiIP(null);
+    
+    // Criar JSON com cmd: 15 (WIFI_AUTH), ssid e password
     const jsonData = JSON.stringify({
-      cmd: 5,
+      cmd: 15,
       ssid: wifiSSID,
       password: wifiPassword,
     });
@@ -537,7 +632,10 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
             targetCharacteristic.uuid,
             encodedValue,
           );
-          registrarLog("app", `WiFi enviado: SSID=${wifiSSID} (cmd: 5)`);
+          registrarLog("app", `WiFi enviado: SSID=${wifiSSID} (cmd: 15)`);
+          setWifiStatus("aguardando");
+          registrarLog("sistema", "Aguardando confirmação de conexão WiFi (pode levar até 10 segundos)...");
+          // IMPORTANTE: NÃO desconectar do BLE aqui! Manter conexão ativa para receber notificação
           return;
         } catch (errorWithResponse: any) {
           registrarLog("sistema", `Erro ao enviar com resposta, tentando sem resposta: ${errorWithResponse?.message || String(errorWithResponse)}`);
@@ -552,7 +650,10 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
             targetCharacteristic.uuid,
             encodedValue,
           );
-          registrarLog("app", `WiFi enviado: SSID=${wifiSSID} (cmd: 5)`);
+          registrarLog("app", `WiFi enviado: SSID=${wifiSSID} (cmd: 15)`);
+          setWifiStatus("aguardando");
+          registrarLog("sistema", "Aguardando confirmação de conexão WiFi (pode levar até 10 segundos)...");
+          // IMPORTANTE: NÃO desconectar do BLE aqui! Manter conexão ativa para receber notificação
           return;
         } catch (errorWithoutResponse: any) {
           registrarLog("sistema", `Erro ao enviar sem resposta: ${errorWithoutResponse?.message || String(errorWithoutResponse)}`);
@@ -803,28 +904,79 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
               ]}
             />
 
+            {/* Status do WiFi */}
+            {wifiStatus !== "idle" && (
+              <View
+                style={[
+                  styles.wifiStatusBox,
+                  {
+                    backgroundColor:
+                      wifiStatus === "conectado"
+                        ? theme.colors.success + "20"
+                        : wifiStatus === "erro"
+                          ? theme.colors.error + "20"
+                          : theme.colors.warning + "20",
+                    borderColor:
+                      wifiStatus === "conectado"
+                        ? theme.colors.success
+                        : wifiStatus === "erro"
+                          ? theme.colors.error
+                          : theme.colors.warning,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.wifiStatusText,
+                    {
+                      color:
+                        wifiStatus === "conectado"
+                          ? theme.colors.success
+                          : wifiStatus === "erro"
+                            ? theme.colors.error
+                            : theme.colors.warning,
+                    },
+                  ]}
+                >
+                  {wifiStatus === "enviando" && "📤 Enviando credenciais..."}
+                  {wifiStatus === "aguardando" && "⏳ Aguardando conexão WiFi..."}
+                  {wifiStatus === "conectado" && `✅ WiFi conectado!${wifiIP ? ` IP: ${wifiIP}` : ''}`}
+                  {wifiStatus === "erro" && "❌ Erro ao conectar WiFi"}
+                </Text>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[
                 styles.button,
                 {
-                  backgroundColor: connectedDevice
-                    ? theme.colors.success
-                    : theme.colors.border,
+                  backgroundColor:
+                    wifiStatus === "conectado"
+                      ? theme.colors.success
+                      : connectedDevice
+                        ? theme.colors.buttonPrimary
+                        : theme.colors.border,
                 },
               ]}
               onPress={enviarCredenciaisWifi}
+              disabled={!connectedDevice || wifiStatus === "enviando" || wifiStatus === "aguardando"}
             >
               <Text
                 style={[
                   styles.buttonText,
                   {
-                    color: connectedDevice
-                      ? theme.colors.buttonText
-                      : theme.colors.textSecondary,
+                    color:
+                      wifiStatus === "conectado" || connectedDevice
+                        ? theme.colors.buttonText
+                        : theme.colors.textSecondary,
                   },
                 ]}
               >
-                Enviar Wi-Fi
+                {wifiStatus === "enviando" && "Enviando..."}
+                {wifiStatus === "aguardando" && "Aguardando..."}
+                {wifiStatus === "conectado" && "WiFi Conectado ✓"}
+                {wifiStatus === "erro" && "Tentar Novamente"}
+                {wifiStatus === "idle" && "Enviar Wi-Fi"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -955,6 +1107,17 @@ const styles = StyleSheet.create({
   },
   logBody: {
     fontSize: 14,
+  },
+  wifiStatusBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  wifiStatusText: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
   },
 });
 

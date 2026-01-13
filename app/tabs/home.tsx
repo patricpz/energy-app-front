@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import EnergyMeter from "../components/EnergyMeter";
 import AppCard from "../components/GlobalCard";
@@ -15,67 +15,68 @@ export default function Home() {
     const [energyCost, setEnergyCost] = useState<string>("R$ 0.00");
     const [monthlyConsumption, setMonthlyConsumption] = useState<string>("0.0");
 
-    // Buscar account e expenseKwh do mês atual
-    useEffect(() => {
-        const fetchMonthData = async () => {
-            try {
-                const now = new Date();
-                const currentYear = now.getFullYear();
-                const currentMonth = now.getMonth() + 1;
+    // Função para buscar account e expenseKwh do mês atual
+    const fetchMonthData = useCallback(async () => {
+        try {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
+            
+            const monthsData = await getEnergyMonths({
+                year: currentYear,
+                startMonth: currentMonth,
+                endMonth: currentMonth,
+            });
+            
+            console.log('📊 Relatório de Meses (energyMonths) - Array completo:', JSON.stringify(monthsData, null, 2));
+            console.log('📊 Tipo de relatório: Relatório de consumo mensal do ano');
+            
+            if (monthsData && monthsData.length > 0) {
+                const monthData = monthsData[0];
                 
-                const monthsData = await getEnergyMonths({
-                    year: currentYear,
-                    startMonth: currentMonth,
-                    endMonth: currentMonth,
+                // Console detalhado do mês atual
+                console.log('═══════════════════════════════════════');
+                console.log('📅 MÊS ATUAL - Dados completos:');
+                console.log('═══════════════════════════════════════');
+                console.log(JSON.stringify(monthData, null, 2));
+                console.log('───────────────────────────────────────');
+                console.log('📋 Campos individuais do mês atual:');
+                Object.keys(monthData).forEach(key => {
+                    console.log(`  • ${key}:`, (monthData as any)[key]);
                 });
+                console.log('═══════════════════════════════════════');
                 
-                console.log('📊 Relatório de Meses (energyMonths) - Array completo:', JSON.stringify(monthsData, null, 2));
-                console.log('📊 Tipo de relatório: Relatório de consumo mensal do ano');
-                
-                if (monthsData && monthsData.length > 0) {
-                    const monthData = monthsData[0];
-                    
-                    // Console detalhado do mês atual
-                    console.log('═══════════════════════════════════════');
-                    console.log('📅 MÊS ATUAL - Dados completos:');
-                    console.log('═══════════════════════════════════════');
-                    console.log(JSON.stringify(monthData, null, 2));
-                    console.log('───────────────────────────────────────');
-                    console.log('📋 Campos individuais do mês atual:');
-                    Object.keys(monthData).forEach(key => {
-                        console.log(`  • ${key}:`, (monthData as any)[key]);
-                    });
-                    console.log('═══════════════════════════════════════');
-                    
-                    // Buscar account (custo)
-                    const account = (monthData as any).account;
-                    if (account !== undefined && account !== null) {
-                        // Formatar como moeda brasileira
-                        const formattedValue = typeof account === 'number' 
-                            ? account.toFixed(2).replace('.', ',')
-                            : account.toString();
-                        setEnergyCost(`R$ ${formattedValue}`);
-                    }
-                    
-                    // Buscar expenseKwh (consumo total do mês)
-                    const expenseKwh = (monthData as any).expenseKwh || monthData.consumeKwh || 0;
-                    if (expenseKwh !== undefined && expenseKwh !== null) {
-                        // Formatar com mais casas decimais para valores pequenos
-                        const formattedConsumption = typeof expenseKwh === 'number' 
-                            ? expenseKwh < 1 
-                                ? expenseKwh.toFixed(5) // Para valores < 1, mostrar 5 casas decimais
-                                : expenseKwh.toFixed(1) // Para valores >= 1, mostrar 1 casa decimal
-                            : expenseKwh.toString();
-                        setMonthlyConsumption(formattedConsumption);
-                    }
+                // Buscar account (custo)
+                const account = (monthData as any).account;
+                if (account !== undefined && account !== null) {
+                    // Formatar como moeda brasileira
+                    const formattedValue = typeof account === 'number' 
+                        ? account.toFixed(2).replace('.', ',')
+                        : account.toString();
+                    setEnergyCost(`R$ ${formattedValue}`);
                 }
-            } catch (err) {
-                console.error('Erro ao buscar dados do mês:', err);
+                
+                // Buscar expenseKwh (consumo total do mês)
+                const expenseKwh = (monthData as any).expenseKwh || monthData.consumeKwh || 0;
+                if (expenseKwh !== undefined && expenseKwh !== null) {
+                    // Formatar com mais casas decimais para valores pequenos
+                    const formattedConsumption = typeof expenseKwh === 'number' 
+                        ? expenseKwh < 1 
+                            ? expenseKwh.toFixed(5) // Para valores < 1, mostrar 5 casas decimais
+                            : expenseKwh.toFixed(1) // Para valores >= 1, mostrar 1 casa decimal
+                        : expenseKwh.toString();
+                    setMonthlyConsumption(formattedConsumption);
+                }
             }
-        };
-        
-        fetchMonthData();
+        } catch (err) {
+            console.error('Erro ao buscar dados do mês:', err);
+        }
     }, []);
+
+    // Buscar dados na montagem inicial
+    useEffect(() => {
+        fetchMonthData();
+    }, [fetchMonthData]);
 
     return (
         <SafeScreen>
@@ -86,9 +87,14 @@ export default function Home() {
                     <View style={styles.content}>
                         <View style={styles.pulseRow}>
                             <PulseWebSocketLed
-                                onPulse={() => {
+                                onPulse={(rawMessage) => {
+                                    // Ativar animação do LED
                                     setPulseActive(true);
                                     setTimeout(() => setPulseActive(false), 150);
+                                    
+                                    // Atualizar dados do mês a cada pulso
+                                    console.log('💡 Pulso detectado! Atualizando dados...');
+                                    fetchMonthData();
                                 }}
                             />
                         </View>

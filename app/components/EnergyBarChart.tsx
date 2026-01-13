@@ -66,32 +66,44 @@ export default function EnergyBarChart({
             contentContainerStyle={(periodFilter === "mes" || periodFilter === "dia") ? { paddingRight: 20 } : undefined}
         >
             <BarChart
-                data={data.map((item, index) => ({
-                    ...item,
-                    // Usar frontColor do item (já vem do GraphicMeter com a cor correta)
-                    frontColor: item.frontColor || chartColor,
-                    topLabelComponent: selectedIndex === index ? () => (
-                        <View
-                            style={{
-                                marginBottom: 4,
-                                paddingHorizontal: 6,
-                                paddingVertical: 2,
-                                borderRadius: 6,
-                                backgroundColor: colors.primaryLight ?? colors.primary,
-                            }}
-                        >
-                            <Text
+                data={data.map((item, index) => {
+                    const isSelected = selectedIndex === index;
+                    return {
+                        ...item,
+                        // Usar frontColor do item (já vem do GraphicMeter com a cor correta)
+                        frontColor: item.frontColor || chartColor,
+                        // Sempre mostrar o topLabelComponent quando a barra estiver selecionada
+                        topLabelComponent: isSelected ? () => (
+                            <View
                                 style={{
-                                    color: colors.text,
-                                    fontSize: 12,
-                                    fontWeight: "600",
+                                    marginBottom: 4,
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 4,
+                                    borderRadius: 8,
+                                    backgroundColor: colors.primaryLight ?? colors.primary,
+                                    shadowColor: "#000",
+                                    shadowOffset: {
+                                        width: 0,
+                                        height: 2,
+                                    },
+                                    shadowOpacity: 0.25,
+                                    shadowRadius: 3.84,
+                                    elevation: 5,
                                 }}
                             >
-                                {item.value.toFixed(3)} kWh
-                            </Text>
-                        </View>
-                    ) : undefined,
-                }))} barWidth={barWidth}
+                                <Text
+                                    style={{
+                                        color: colors.text,
+                                        fontSize: 13,
+                                        fontWeight: "700",
+                                    }}
+                                >
+                                    {item.value.toFixed(3)} kWh
+                                </Text>
+                            </View>
+                        ) : undefined,
+                    };
+                })} barWidth={barWidth}
                 spacing={spacing}
                 initialSpacing={initialSpacing}
                 endSpacing={endSpacing}
@@ -115,7 +127,11 @@ export default function EnergyBarChart({
                     fontSize: periodFilter === "mes" ? 9 : 11
                 }}
                 xAxisLabelsHeight={periodFilter === "mes" ? 30 : 20}
-                onPress={onBarPress}
+                onPress={(item: any, index: number) => {
+                    // Garantir que o índice seja passado corretamente
+                    console.log('BarChart onPress - item:', item, 'index:', index);
+                    onBarPress(index);
+                }}
                 showGradient={false}
                 isAnimated={false}
                 showValuesAsTopLabel={false}
