@@ -35,14 +35,6 @@ export default function TabsLayout() {
           )
         }}
       />
-      {/* <Tabs.Screen name="analisty"
-        options={{
-          tabBarLabel: "Análises",
-          tabBarIcon: ({ color, size }) => (
-            <ChartLineIcon size={size} color={color} />
-          )
-        }}
-      /> */}
       <Tabs.Screen name="devices"
         options={{
           tabBarLabel: "Dispositivos",
