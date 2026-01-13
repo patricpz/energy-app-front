@@ -61,8 +61,8 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
         let targetValue = 0;
         
         if (monthExpenseKwh !== null) {
-            // Usar expenseKwh do mês
-            targetValue = parseFloat(monthExpenseKwh.toFixed(1));
+            // Usar expenseKwh do mês - manter todas as casas decimais para valores pequenos
+            targetValue = monthExpenseKwh;
         } else {
             // Fallback: prioriza o valor do contador de pulsos, se disponível
             const pulseValue = getEnergyValue();
@@ -75,11 +75,13 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
             setDisplayValue(prev => {
                 const step = (targetValue - prev) / 10;
                 const newValue = prev + step;
-                if (Math.abs(targetValue - newValue) < 0.1) {
+                // Ajustar tolerância para valores pequenos
+                const tolerance = targetValue < 1 ? 0.00001 : 0.1;
+                if (Math.abs(targetValue - newValue) < tolerance) {
                     clearInterval(interval);
                     return targetValue;
                 }
-                return parseFloat(newValue.toFixed(1));
+                return newValue;
             });
         }, 30);
         

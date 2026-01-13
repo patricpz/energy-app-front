@@ -13,8 +13,9 @@ export default function Home() {
     const { theme } = useTheme();
     const [pulseActive, setPulseActive] = useState(false);
     const [energyCost, setEnergyCost] = useState<string>("R$ 0.00");
+    const [monthlyConsumption, setMonthlyConsumption] = useState<string>("0.0");
 
-    // Buscar account do mês atual
+    // Buscar account e expenseKwh do mês atual
     useEffect(() => {
         const fetchMonthData = async () => {
             try {
@@ -28,8 +29,25 @@ export default function Home() {
                     endMonth: currentMonth,
                 });
                 
+                console.log('📊 Relatório de Meses (energyMonths) - Array completo:', JSON.stringify(monthsData, null, 2));
+                console.log('📊 Tipo de relatório: Relatório de consumo mensal do ano');
+                
                 if (monthsData && monthsData.length > 0) {
                     const monthData = monthsData[0];
+                    
+                    // Console detalhado do mês atual
+                    console.log('═══════════════════════════════════════');
+                    console.log('📅 MÊS ATUAL - Dados completos:');
+                    console.log('═══════════════════════════════════════');
+                    console.log(JSON.stringify(monthData, null, 2));
+                    console.log('───────────────────────────────────────');
+                    console.log('📋 Campos individuais do mês atual:');
+                    Object.keys(monthData).forEach(key => {
+                        console.log(`  • ${key}:`, (monthData as any)[key]);
+                    });
+                    console.log('═══════════════════════════════════════');
+                    
+                    // Buscar account (custo)
                     const account = (monthData as any).account;
                     if (account !== undefined && account !== null) {
                         // Formatar como moeda brasileira
@@ -38,9 +56,21 @@ export default function Home() {
                             : account.toString();
                         setEnergyCost(`R$ ${formattedValue}`);
                     }
+                    
+                    // Buscar expenseKwh (consumo total do mês)
+                    const expenseKwh = (monthData as any).expenseKwh || monthData.consumeKwh || 0;
+                    if (expenseKwh !== undefined && expenseKwh !== null) {
+                        // Formatar com mais casas decimais para valores pequenos
+                        const formattedConsumption = typeof expenseKwh === 'number' 
+                            ? expenseKwh < 1 
+                                ? expenseKwh.toFixed(5) // Para valores < 1, mostrar 5 casas decimais
+                                : expenseKwh.toFixed(1) // Para valores >= 1, mostrar 1 casa decimal
+                            : expenseKwh.toString();
+                        setMonthlyConsumption(formattedConsumption);
+                    }
                 }
             } catch (err) {
-                console.error('Erro ao buscar custo de energia:', err);
+                console.error('Erro ao buscar dados do mês:', err);
             }
         };
         
@@ -76,7 +106,7 @@ export default function Home() {
                             />
                             <AppCard
                                 title="Consumo Total"
-                                value="156.8"
+                                value={monthlyConsumption}
                                 subtitle="kWh"
                                 icon="flash"
                                 color="#facc15"

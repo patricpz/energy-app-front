@@ -101,10 +101,15 @@ export async function getEnergyMonths(params?: {
     
     // Rota hierárquica: /users/:userId/energyYears/:year/energyMonths
     const response = await api.get(`/users/${userId}/energyYears/${year}/energyMonths`);
-    console.log('Fetched energy months:', response.data);
-    console.log('Energy months array length:', response.data?.length || 0);
+    console.log('Fetched energy months (full response):', JSON.stringify(response.data, null, 2));
     
-    let data = Array.isArray(response.data) ? response.data : [response.data];
+    // A API retorna { data: { average, data: [...], total } }
+    // Precisamos acessar response.data.data para obter o array de meses
+    const responseData = response.data?.data || response.data;
+    console.log('Energy months data array:', JSON.stringify(responseData, null, 2));
+    console.log('Energy months array length:', Array.isArray(responseData) ? responseData.length : 0);
+    
+    let data = Array.isArray(responseData) ? responseData : [responseData];
     
     // Filtrar por intervalo de meses se especificado
     if (params?.startMonth && params?.endMonth) {
