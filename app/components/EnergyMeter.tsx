@@ -8,9 +8,10 @@ import { getEnergyMonths } from "../services/energyReport";
 
 interface EnergyMeterProps {
     pulseActive?: boolean;
+    expenseKwh?: number | null;
 }
 
-const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
+const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false, expenseKwh: expenseKwhProp = null }) => {
     const { theme } = useTheme();
     const { data, loading, error } = useEnergyData();
     const { getEnergyValue, pulseCount } = usePulseCounter();
@@ -28,8 +29,15 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
         : "#1E293B"; 
     const secondaryTextColor = theme.mode === "light" ? "#000000" : "#FFFFFF";
 
-    // Buscar expenseKwh do mês atual
+    // Buscar expenseKwh do mês atual (apenas se não for passado como prop)
     useEffect(() => {
+        // Se o expenseKwh foi passado como prop, usar ele e não buscar
+        if (expenseKwhProp !== null && expenseKwhProp !== undefined) {
+            setMonthExpenseKwh(expenseKwhProp);
+            return;
+        }
+        
+        // Caso contrário, buscar do servidor
         const fetchMonthData = async () => {
             try {
                 const now = new Date();
@@ -53,7 +61,7 @@ const EnergyMeter: React.FC<EnergyMeterProps> = ({ pulseActive = false }) => {
         };
         
         fetchMonthData();
-    }, []);
+    }, [expenseKwhProp]);
 
     // Smooth transition for the meter value
     // Usa expenseKwh do mês se disponível, caso contrário prioriza o valor do contador de pulsos

@@ -68,12 +68,23 @@ export default function EnergyBarChart({
             <BarChart
                 data={data.map((item, index) => {
                     const isSelected = selectedIndex === index;
-                    return {
-                        ...item,
-                        // Usar frontColor do item (já vem do GraphicMeter com a cor correta)
+                    // Garantir que o valor seja numérico e válido
+                    const value = typeof item.value === 'number' && !isNaN(item.value) ? item.value : 0;
+                    // Verificar se o valor é maior que 0 (não mostrar label se for 0)
+                    const hasValue = value > 0.0001;
+                    
+                    // Criar objeto limpo sem propriedades que possam causar conflito
+                    const cleanItem: any = {
+                        value: value,
+                        label: item.label,
                         frontColor: item.frontColor || chartColor,
-                        // Sempre mostrar o topLabelComponent quando a barra estiver selecionada
-                        topLabelComponent: isSelected ? () => (
+                    };
+                    
+                    // Remover qualquer propriedade que possa estar causando o índice ou 0 ser exibido
+                    // Não incluir topLabel, topLabelTextStyle ou outras propriedades que possam interferir
+                    if (isSelected && hasValue) {
+                        // Mostrar topLabelComponent apenas quando selecionado E valor > 0
+                        cleanItem.topLabelComponent = () => (
                             <View
                                 style={{
                                     marginBottom: 4,
@@ -98,11 +109,16 @@ export default function EnergyBarChart({
                                         fontWeight: "700",
                                     }}
                                 >
-                                    {item.value.toFixed(3)} kWh
+                                    {value.toFixed(3)} kWh
                                 </Text>
                             </View>
-                        ) : undefined,
-                    };
+                        );
+                    } else {
+                        // Garantir que não há topLabelComponent quando valor é 0 ou não está selecionado
+                        cleanItem.topLabelComponent = undefined;
+                    }
+                    
+                    return cleanItem;
                 })} barWidth={barWidth}
                 spacing={spacing}
                 initialSpacing={initialSpacing}

@@ -25,6 +25,7 @@ export default function GraphicMeter() {
     const [apiData, setApiData] = useState<EnergyHourData[] | EnergyDayData[] | EnergyMonthData[] | EnergyYearData[]>([]);
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+    const [monthlyConsumption, setMonthlyConsumption] = useState<number>(0);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -54,12 +55,33 @@ export default function GraphicMeter() {
         
         try {
             const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
             
             const unwrap = (response: any) => {
                 if (response && response.data && Array.isArray(response.data)) return response.data;
                 if (Array.isArray(response)) return response;
                 return [];
             };
+
+            // Buscar consumo do mês atual para exibir no "Consumo Médio"
+            try {
+                const monthDataArray = await getEnergyMonths({
+                    year: currentYear,
+                    startMonth: currentMonth,
+                    endMonth: currentMonth,
+                });
+                if (monthDataArray && monthDataArray.length > 0) {
+                    const monthData = monthDataArray[0];
+                    const expenseKwh = (monthData as any).expenseKwh || monthData.consumeKwh || 0;
+                    setMonthlyConsumption(typeof expenseKwh === 'number' ? expenseKwh : parseFloat(expenseKwh) || 0);
+                } else {
+                    setMonthlyConsumption(0);
+                }
+            } catch (err) {
+                console.error('Erro ao buscar consumo do mês:', err);
+                setMonthlyConsumption(0);
+            }
 
             switch (periodFilter) {
                 case "dia":
@@ -212,6 +234,14 @@ export default function GraphicMeter() {
                 const currentMonth = today.getMonth() + 1;
                 const currentYear = today.getFullYear();
                 
+                console.log('📅 Processando dados do dia:', {
+                    currentDay,
+                    currentMonth,
+                    currentYear,
+                    dayDataLength: dayData.length,
+                    dayData: dayData
+                });
+                
                 // Encontrar os dados do dia atual
                 const todayData = dayData.find((item) => 
                     item.day === currentDay && 
@@ -219,18 +249,30 @@ export default function GraphicMeter() {
                     item.year === currentYear
                 );
                 
+                console.log('📅 Dados encontrados para hoje:', todayData);
+                
+                // Extrair o valor de consumo (priorizar expenseKwh)
                 const consumptionValue = todayData 
-                    ? ((todayData as any).expenseKwh || todayData.totalConsumption || todayData.averageConsumption || 0)
+                    ? ((todayData as any).expenseKwh || todayData.consumeKwh || todayData.totalConsumption || todayData.averageConsumption || 0)
                     : 0;
                 
-                // Formatar label como "DD/MM"
+                // Formatar label como "DD/MM" ou "Dia DD"
                 const dayLabel = currentDay.toString().padStart(2, "0");
                 const monthLabel = currentMonth.toString().padStart(2, "0");
+                const dayName = today.toLocaleDateString('pt-BR', { weekday: 'short' }); // Ex: "Seg", "Ter"
+                
+                console.log('📅 Barra do dia criada:', {
+                    value: consumptionValue,
+                    label: `${dayLabel}/${monthLabel}`,
+                    day: currentDay
+                });
                 
                 return [{
                     value: consumptionValue,
                     label: `${dayLabel}/${monthLabel}`,
                     day: currentDay,
+                    month: currentMonth,
+                    year: currentYear,
                 }];
 
             case "mes": {
@@ -263,9 +305,20 @@ export default function GraphicMeter() {
                     const date = new Date(selectedYear, selectedMonth - 1, day);
                     const dayLabel = date.getDate().toString().padStart(2, "0");
                     const monthLabel = (date.getMonth() + 1).toString().padStart(2, "0");
+                    
+                    // Encontrar o item correspondente na API para manter referência
+                    const apiDayItem = monthDaysData.find((item) => 
+                        item.day === day && 
+                        item.month === selectedMonth && 
+                        item.year === selectedYear
+                    );
+                    
                     return {
                         value: value,
                         label: `${dayLabel}/${monthLabel}`,
+                        day: day, // Incluir o dia para facilitar acesso
+                        month: selectedMonth,
+                        year: selectedYear,
                     };
                 });
                 
@@ -333,17 +386,34 @@ export default function GraphicMeter() {
         } else {
             // Seleciona a nova barra
             const barItem = baseData[index];
+            const apiItem = apiData[index] as any;
+            
             if (barItem) {
+                // Extrair o valor de consumo (priorizar expenseKwh da API, depois value do item)
+                let consumptionValue = barItem.value || 0;
+                
+                // Tentar obter o valor da API se disponível (mais preciso)
+                if (apiItem) {
+                    consumptionValue = (apiItem as any).expenseKwh || 
+                                     apiItem.consumeKwh || 
+                                     apiItem.totalConsumption || 
+                                     apiItem.averageConsumption || 
+                                     barItem.value || 
+                                     0;
+                }
+                
                 setSelectedIndex(index);
                 setSelectedPoint({ 
                     ...barItem, 
+                    ...(apiItem || {}),
                     index,
-                    value: barItem.value || 0,
+                    value: consumptionValue,
                 });
                 console.log('Barra selecionada:', { 
                     index, 
-                    value: barItem.value,
-                    label: barItem.label 
+                    value: consumptionValue,
+                    label: barItem.label,
+                    apiValue: apiItem ? ((apiItem as any).expenseKwh || apiItem.consumeKwh) : null
                 });
             } else {
                 console.warn('Item da barra não encontrado no índice:', index);
@@ -357,9 +427,12 @@ export default function GraphicMeter() {
     const axisColor = colors.border;
 
     // Calcular métricas
-    const averageConsumption = liveData.length > 0
-        ? (liveData.reduce((sum, item) => sum + item.value, 0) / liveData.length).toFixed(1)
-        : "0.0";
+    // Consumo Médio: usar o consumo do mês atual (expenseKwh) em vez da média dos dados do gráfico
+    const averageConsumption = monthlyConsumption > 0
+        ? monthlyConsumption.toFixed(1)
+        : liveData.length > 0
+            ? (liveData.reduce((sum, item) => sum + item.value, 0) / liveData.length).toFixed(1)
+            : "0.0";
     
     const maxConsumption = liveData.length > 0
         ? Math.max(...liveData.map(item => item.value)).toFixed(1)
@@ -437,6 +510,9 @@ export default function GraphicMeter() {
         // Garantir que seja pelo menos a largura da tela para scroll funcionar
         // Mas não limitar o máximo - deixar o gráfico expandir para mostrar todos os dias
         computedChartWidth = Math.max(computedChartWidth, screenWidth);
+    } else if (periodFilter === "dia") {
+        // Para dia, garantir largura mínima para uma barra grande e visível
+        computedChartWidth = Math.max(containerChartWidth, barWidthValue + spacingValue + 12 + 24 + 32);
     } else {
         computedChartWidth = liveData.length * (barWidthValue + spacingValue) + 12 + 24 + 32;
     }
@@ -632,46 +708,115 @@ export default function GraphicMeter() {
                     ]}
                 >
                     <View style={styles.selectedInfoContent}>
-                        <View style={styles.selectedInfoRow}>
-                            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-                            <Text style={[styles.selectedInfoLabel, { color: colors.textSecondary }]}>
-                                Dia:
-                            </Text>
+                        <View style={styles.selectedInfoColumn}>
+                            <View style={styles.selectedInfoRow}>
+                                <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                                <Text style={[styles.selectedInfoLabel, { color: colors.textSecondary }]}>
+                                    {periodFilter === "ano" ? "Mês:" : "Dia:"}
+                                </Text>
                             <Text style={[styles.selectedInfoValue, { color: colors.text }]}>
                                 {(() => {
-                                    // Extrair o dia do selectedPoint ou do baseData
+                                    // Extrair o dia/mês do selectedPoint ou do baseData
                                     const item = baseData[selectedIndex];
-                                    const apiItem = apiData[selectedIndex] as any;
                                     
-                                    // Tentar obter o dia da API primeiro (mais confiável)
-                                    if (apiItem && apiItem.day) {
-                                        if (periodFilter === "dia") {
-                                            return item?.label || `Dia ${apiItem.day}`;
-                                        } else if (periodFilter === "mes") {
-                                            return `Dia ${apiItem.day}`;
-                                        } else if (periodFilter === "ano") {
-                                            return item?.label || `Dia ${apiItem.day}`;
+                                    if (periodFilter === "dia") {
+                                        // Para dia: mostrar apenas o dia (ex: "Dia 15")
+                                        // Priorizar o campo day do item
+                                        if (item && (item as any).day) {
+                                            return `Dia ${(item as any).day}`;
                                         }
+                                        // Fallback: extrair do label "DD/MM"
+                                        if (item && item.label) {
+                                            const dayFromLabel = item.label.split('/')[0];
+                                            return `Dia ${parseInt(dayFromLabel)}`;
+                                        }
+                                        // Último fallback: usar apiItem
+                                        const apiItem = apiData[selectedIndex] as any;
+                                        if (apiItem && apiItem.day) {
+                                            return `Dia ${apiItem.day}`;
+                                        }
+                                        return "Dia atual";
+                                    } else if (periodFilter === "mes") {
+                                        // Para mês: mostrar o dia (ex: "Dia 15")
+                                        // Priorizar o campo day do item
+                                        if (item && (item as any).day) {
+                                            return `Dia ${(item as any).day}`;
+                                        }
+                                        // Fallback: extrair do label "DD/MM"
+                                        if (item && item.label) {
+                                            const dayFromLabel = item.label.split('/')[0];
+                                            return `Dia ${parseInt(dayFromLabel)}`;
+                                        }
+                                        // Último fallback: buscar na API pelo índice
+                                        const apiItem = apiData.find((api: any) => 
+                                            api.day === selectedIndex + 1 && 
+                                            api.month === selectedMonth && 
+                                            api.year === selectedYear
+                                        ) as any;
+                                        if (apiItem && apiItem.day) {
+                                            return `Dia ${apiItem.day}`;
+                                        }
+                                        return `Dia ${selectedIndex + 1}`;
+                                    } else if (periodFilter === "ano") {
+                                        // Para ano: mostrar o mês (ex: "Jan")
+                                        // O label já contém o nome do mês
+                                        if (item && item.label) {
+                                            return item.label; // Já contém o nome do mês (ex: "Jan", "Fev")
+                                        }
+                                        // Fallback: usar o mês da API
+                                        const apiItem = apiData[selectedIndex] as any;
+                                        if (apiItem && apiItem.month) {
+                                            const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+                                            return monthNames[apiItem.month - 1] || `Mês ${apiItem.month}`;
+                                        }
+                                        return meses[selectedIndex] || `Mês ${selectedIndex + 1}`;
                                     }
                                     
-                                    // Fallback: usar o label do item ou índice
-                                    if (item && item.label) {
-                                        return item.label;
-                                    }
-                                    
-                                    // Último fallback
-                                    return `Item ${selectedIndex + 1}`;
+                                    // Fallback genérico
+                                    return item?.label || `Item ${selectedIndex + 1}`;
                                 })()}
                             </Text>
-                        </View>
-                        <View style={styles.selectedInfoRow}>
-                            <Ionicons name="flash-outline" size={18} color={colors.primary} />
-                            <Text style={[styles.selectedInfoLabel, { color: colors.textSecondary }]}>
-                                Consumo:
-                            </Text>
-                            <Text style={[styles.selectedInfoValue, { color: colors.primary, fontWeight: "700" }]}>
-                                {selectedPoint.value?.toFixed(3) || "0.000"} kWh
-                            </Text>
+                            </View>
+                            <View style={styles.selectedInfoRow}>
+                                <Ionicons name="flash-outline" size={18} color={colors.primary} />
+                                <Text style={[styles.selectedInfoLabel, { color: colors.textSecondary }]}>
+                                    Consumo:
+                                </Text>
+                                <Text style={[styles.selectedInfoValue, { color: colors.primary, fontWeight: "700" }]}>
+                                    {(() => {
+                                        // Garantir que o valor seja exibido corretamente
+                                        const value = selectedPoint.value ?? 
+                                                     (selectedPoint as any).expenseKwh ?? 
+                                                     (selectedPoint as any).consumeKwh ?? 
+                                                     0;
+                                        return typeof value === 'number' ? value.toFixed(3) : "0.000";
+                                    })()} kWh
+                                </Text>
+                            </View>
+                            <View style={styles.selectedInfoRow}>
+                                <Ionicons name="cash-outline" size={18} color={colors.primary} />
+                                <Text style={[styles.selectedInfoLabel, { color: colors.textSecondary }]}>
+                                    Custo:
+                                </Text>
+                                <Text style={[styles.selectedInfoValue, { color: colors.success || colors.primary, fontWeight: "700" }]}>
+                                    {(() => {
+                                        // Extrair o account (custo) do selectedPoint
+                                        const account = (selectedPoint as any).account;
+                                        if (account !== undefined && account !== null && account !== "") {
+                                            // Formatar como moeda brasileira
+                                            const accountValue = typeof account === 'number' 
+                                                ? account 
+                                                : parseFloat(account.toString().replace(',', '.'));
+                                            
+                                            if (!isNaN(accountValue)) {
+                                                return `R$ ${accountValue.toFixed(2).replace('.', ',')}`;
+                                            }
+                                            return account.toString();
+                                        }
+                                        return "R$ 0,00";
+                                    })()}
+                                </Text>
+                            </View>
                         </View>
                     </View>
                     <TouchableOpacity
@@ -1201,8 +1346,11 @@ const styles = StyleSheet.create({
     },
     selectedInfoContent: {
         flex: 1,
-        flexDirection: "row",
-        gap: 16,
+    },
+    selectedInfoColumn: {
+        flex: 1,
+        flexDirection: "column",
+        gap: 8,
     },
     selectedInfoRow: {
         flexDirection: "row",

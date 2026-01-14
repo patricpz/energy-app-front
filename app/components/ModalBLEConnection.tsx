@@ -243,7 +243,7 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
         }
       }
       // BTCOMMAND_MESSAGE (cmd: 13) - Mensagem genérica
-      else if (response.cmd === 13) {
+      else if (response.cmd === 5) {
         registrarLog("esp32", `Mensagem: ${response.data}`);
         
         // Se receber "Credenciais OK", significa que o ESP32 recebeu as credenciais
@@ -254,7 +254,7 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
         }
       }
       // BTCOMMAND_WIFI_LIST (cmd: 14) - Lista de redes WiFi
-      else if (response.cmd === 14) {
+      else if (response.cmd === 4) {
         registrarLog("esp32", `Redes WiFi disponíveis: ${JSON.stringify(response.data)}`);
       }
     } catch (err) {
@@ -567,7 +567,7 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
     
     // Criar JSON com cmd: 15 (WIFI_AUTH), ssid e password
     const jsonData = JSON.stringify({
-      cmd: 15,
+      cmd: 5,
       ssid: wifiSSID,
       password: wifiPassword,
     });
@@ -650,7 +650,7 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
             targetCharacteristic.uuid,
             encodedValue,
           );
-          registrarLog("app", `WiFi enviado: SSID=${wifiSSID} (cmd: 15)`);
+          registrarLog("app", `WiFi enviado: SSID=${wifiSSID} (cmd: 5)`);
           setWifiStatus("aguardando");
           registrarLog("sistema", "Aguardando confirmação de conexão WiFi (pode levar até 10 segundos)...");
           // IMPORTANTE: NÃO desconectar do BLE aqui! Manter conexão ativa para receber notificação

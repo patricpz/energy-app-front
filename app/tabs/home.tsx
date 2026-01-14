@@ -14,6 +14,7 @@ export default function Home() {
     const [pulseActive, setPulseActive] = useState(false);
     const [energyCost, setEnergyCost] = useState<string>("R$ 0.00");
     const [monthlyConsumption, setMonthlyConsumption] = useState<string>("0.0");
+    const [expenseKwh, setExpenseKwh] = useState<number | null>(null);
 
     // Função para buscar account e expenseKwh do mês atual
     const fetchMonthData = useCallback(async () => {
@@ -57,14 +58,17 @@ export default function Home() {
                 }
                 
                 // Buscar expenseKwh (consumo total do mês)
-                const expenseKwh = (monthData as any).expenseKwh || monthData.consumeKwh || 0;
-                if (expenseKwh !== undefined && expenseKwh !== null) {
+                const expenseKwhValue = (monthData as any).expenseKwh || monthData.consumeKwh || 0;
+                if (expenseKwhValue !== undefined && expenseKwhValue !== null) {
+                    // Armazenar o valor numérico para passar ao EnergyMeter
+                    setExpenseKwh(typeof expenseKwhValue === 'number' ? expenseKwhValue : parseFloat(expenseKwhValue));
+                    
                     // Formatar com mais casas decimais para valores pequenos
-                    const formattedConsumption = typeof expenseKwh === 'number' 
-                        ? expenseKwh < 1 
-                            ? expenseKwh.toFixed(5) // Para valores < 1, mostrar 5 casas decimais
-                            : expenseKwh.toFixed(1) // Para valores >= 1, mostrar 1 casa decimal
-                        : expenseKwh.toString();
+                    const formattedConsumption = typeof expenseKwhValue === 'number' 
+                        ? expenseKwhValue < 1 
+                            ? expenseKwhValue.toFixed(5) // Para valores < 1, mostrar 5 casas decimais
+                            : expenseKwhValue.toFixed(1) // Para valores >= 1, mostrar 1 casa decimal
+                        : expenseKwhValue.toString();
                     setMonthlyConsumption(formattedConsumption);
                 }
             }
@@ -100,7 +104,7 @@ export default function Home() {
                         </View>
 
                         <View style={{ alignItems: "center", marginTop: 20 }}>
-                            <EnergyMeter pulseActive={pulseActive} />
+                            <EnergyMeter pulseActive={pulseActive} expenseKwh={expenseKwh} />
                         </View>
                         <View style={styles.cardRow}>
                             <AppCard
