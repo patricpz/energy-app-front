@@ -54,75 +54,65 @@ export default function GraphicMeter() {
         
         try {
             const now = new Date();
-            const currentYear = now.getFullYear();
-            const currentMonth = now.getMonth() + 1;
-            const currentDay = now.getDate();
+            
+            const unwrap = (response: any) => {
+                if (response && response.data && Array.isArray(response.data)) return response.data;
+                if (Array.isArray(response)) return response;
+                return [];
+            };
 
             switch (periodFilter) {
-                // case "dia":
-                //     // Buscar todas as horas do dia atual (0-23)
-                //     const hoursData = await getEnergyHours({
-                //         yearId: currentYear,
-                //         monthId: currentMonth,
-                //         dayId: currentDay,
-                //     });
-                //     setApiData(hoursData);
-                //     break;
-
                 case "dia":
-                    // Buscar apenas o dia atual
                     const today = new Date(now);
                     const currentYearForDay = today.getFullYear();
                     const currentMonthForDay = today.getMonth() + 1;
                     const currentDayForDay = today.getDate();
                     
-                    // Buscar dados do dia atual
-                    const dayData = await getEnergyDays({
+                    const dayResponse = await getEnergyDays({
                         yearId: currentYearForDay,
                         monthId: currentMonthForDay,
                         startDay: currentDayForDay,
                         endDay: currentDayForDay,
                     });
-                    setApiData(Array.isArray(dayData) ? dayData : []);
+                    
+                    // Usa o unwrap para garantir que pegou a lista certa
+                    setApiData(unwrap(dayResponse));
                     break;
 
                 case "mes":
-                    // Buscar apenas os dias do mês atual até o dia de hoje
                     const nowDate = new Date();
                     const currentYearForMonth = nowDate.getFullYear();
                     const currentMonthForMonth = nowDate.getMonth() + 1;
                     const currentDayForMonth = nowDate.getDate();
                     
-                    // Se o mês selecionado é o mês atual, mostrar apenas até hoje
-                    // Caso contrário, mostrar todos os dias do mês selecionado
                     let endDay = new Date(selectedYear, selectedMonth, 0).getDate();
                     if (selectedYear === currentYearForMonth && selectedMonth === currentMonthForMonth) {
                         endDay = currentDayForMonth;
                     }
                     
-                    const monthDaysData = await getEnergyDays({
+                    const monthResponse = await getEnergyDays({
                         yearId: selectedYear,
                         monthId: selectedMonth,
                         startDay: 1,
                         endDay: endDay,
                     });
-                    setApiData(Array.isArray(monthDaysData) ? monthDaysData : []);
+
+                    setApiData(unwrap(monthResponse));
                     break;
 
                 case "ano":
-                    // Buscar todos os meses do ano selecionado (janeiro a dezembro)
-                    const monthsData = await getEnergyMonths({
+                    const yearResponse = await getEnergyMonths({
                         yearId: selectedYear,
                         startMonth: 1,
                         endMonth: 12,
                     });
-                    setApiData(Array.isArray(monthsData) ? monthsData : []);
+                    
+                    setApiData(unwrap(yearResponse));
                     break;
             }
         } catch (err: any) {
             console.error('Error fetching energy data:', err);
             setError(err.message || 'Erro ao carregar dados');
-            // Em caso de erro, usar dados vazios
             setApiData([]);
         } finally {
             setLoading(false);
@@ -309,17 +299,13 @@ export default function GraphicMeter() {
     const liveData = useMemo(() => {
         return baseData.map((item, index) => {
             const isSelected = selectedIndex === index;
-            const hourLabel = (item as any).hour || item.label || `${index}:00`;
             
             return {
                 ...item,
                 frontColor: isSelected ? colors.primaryLight || colors.primary : colors.primary,
-                topLabel: isSelected ? item.value.toFixed(3) : undefined,
-                topLabelTextStyle: isSelected ? {
-                    color: colors.text || "#000000",
-                    fontSize: 12,
-                    fontWeight: "600",
-                } : undefined,
+                topLabelComponent: undefined, 
+                topLabel: undefined, 
+                topLabelTextStyle: undefined,
             };
         });
     }, [baseData, selectedIndex, colors, periodFilter]);
