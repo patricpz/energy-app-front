@@ -11,7 +11,7 @@ type PulseWebSocketLedProps = {
 
 const PulseWebSocketLed: React.FC<PulseWebSocketLedProps> = ({
     url = "wss://energy-app-backend-nqub.onrender.com/ws",
-    pulseDurationMs = 150,
+    pulseDurationMs = 300,
     onPulse,
 }) => {
     const wsRef = useRef<WebSocket | null>(null);

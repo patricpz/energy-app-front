@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { BellIcon, DevicesIcon, HouseIcon, UserIcon } from "phosphor-react-native";
+import { DevicesIcon, HouseIcon, UserIcon } from "phosphor-react-native";
 import { useTheme } from "../context/ThemeContext";
 
 export default function TabsLayout() {
@@ -43,14 +43,7 @@ export default function TabsLayout() {
           )
         }}
       />
-      <Tabs.Screen name="alerts"
-        options={{
-          tabBarLabel: "Alertas",
-          tabBarIcon: ({ color, size }) => (
-            <BellIcon color={color} size={size} />
-          )
-        }}
-      />
+
       <Tabs.Screen name="profile"
         options={{
           tabBarLabel: "Perfil",

@@ -171,11 +171,18 @@ export default function GraphicMeter() {
                 //         hour: hora,
                 //     }));
                 case "dia":
-                    // Retornar apenas o dia atual
+                    // Retornar APENAS uma barra do dia atual (mesmo sem dados)
                     const nowDate = new Date();
                     const dayLabel = nowDate.getDate().toString().padStart(2, "0");
                     const monthLabel = (nowDate.getMonth() + 1).toString().padStart(2, "0");
-                    return [{ value: 0, label: `${dayLabel}/${monthLabel}` }];
+                    // Retornar apenas UMA barra com valor 0 enquanto carrega
+                    return [{ 
+                        value: 0, 
+                        label: `${dayLabel}/${monthLabel}`,
+                        day: nowDate.getDate(),
+                        month: nowDate.getMonth() + 1,
+                        year: nowDate.getFullYear(),
+                    }];
                 case "mes": {
                     // Retornar apenas os dias até hoje se for o mês atual
                     const nowDate = new Date();
@@ -227,46 +234,39 @@ export default function GraphicMeter() {
             //     });
 
             case "dia":
-                // Mapear dados do dia atual
+                // Mapear dados do dia atual - GARANTIR APENAS UMA BARRA
                 const dayData = (Array.isArray(apiData) ? apiData : []) as EnergyDayData[];
                 const today = new Date();
                 const currentDay = today.getDate();
                 const currentMonth = today.getMonth() + 1;
                 const currentYear = today.getFullYear();
                 
-                console.log('📅 Processando dados do dia:', {
-                    currentDay,
-                    currentMonth,
-                    currentYear,
-                    dayDataLength: dayData.length,
-                    dayData: dayData
-                });
-                
-                // Encontrar os dados do dia atual
+                // Filtrar APENAS o dia atual, ignorando qualquer outro dia que possa vir na resposta
                 const todayData = dayData.find((item) => 
                     item.day === currentDay && 
                     item.month === currentMonth && 
                     item.year === currentYear
                 );
                 
-                console.log('📅 Dados encontrados para hoje:', todayData);
-                
                 // Extrair o valor de consumo (priorizar expenseKwh)
-                const consumptionValue = todayData 
+                let consumptionValue = todayData 
                     ? ((todayData as any).expenseKwh || todayData.consumeKwh || todayData.totalConsumption || todayData.averageConsumption || 0)
                     : 0;
                 
-                // Formatar label como "DD/MM" ou "Dia DD"
+                // Garantir que o valor seja numérico
+                if (typeof consumptionValue === 'string') {
+                    consumptionValue = parseFloat(consumptionValue) || 0;
+                }
+                consumptionValue = typeof consumptionValue === 'number' && !isNaN(consumptionValue) ? consumptionValue : 0;
+                
+                // Debug: log do valor
+                console.log('[GraphicMeter] Dia - consumptionValue:', consumptionValue, 'todayData:', todayData);
+                
+                // Formatar label como "DD/MM"
                 const dayLabel = currentDay.toString().padStart(2, "0");
                 const monthLabel = currentMonth.toString().padStart(2, "0");
-                const dayName = today.toLocaleDateString('pt-BR', { weekday: 'short' }); // Ex: "Seg", "Ter"
                 
-                console.log('📅 Barra do dia criada:', {
-                    value: consumptionValue,
-                    label: `${dayLabel}/${monthLabel}`,
-                    day: currentDay
-                });
-                
+                // RETORNAR APENAS UMA BARRA - do dia determinado
                 return [{
                     value: consumptionValue,
                     label: `${dayLabel}/${monthLabel}`,
@@ -486,7 +486,8 @@ export default function GraphicMeter() {
             // Calcular largura dinâmica baseada na largura da tela para 1 barra
             const availableWidth = screenWidth - 72; // Largura disponível menos padding
             const calculatedWidth = Math.floor((availableWidth - 12 - 24 - 32) / 1);
-            return Math.max(40, Math.min(calculatedWidth, 80)); // Mínimo 40, máximo 80 para uma barra grande
+            // Aumentar a largura mínima e máxima para garantir que a barra seja bem visível
+            return Math.max(60, Math.min(calculatedWidth, 120)); // Mínimo 60, máximo 120 para uma barra grande e visível
         }
         if (periodFilter === "mes") {
             // Para mês, usar largura fixa pequena já que teremos muitos dias
@@ -512,7 +513,9 @@ export default function GraphicMeter() {
         computedChartWidth = Math.max(computedChartWidth, screenWidth);
     } else if (periodFilter === "dia") {
         // Para dia, garantir largura mínima para uma barra grande e visível
-        computedChartWidth = Math.max(containerChartWidth, barWidthValue + spacingValue + 12 + 24 + 32);
+        // Centralizar a barra no gráfico (8 de espaçamento inicial + 16 de final + barra + espaçamento)
+        const minWidthForBar = barWidthValue + spacingValue + 8 + 16 + 32;
+        computedChartWidth = Math.max(containerChartWidth, minWidthForBar);
     } else {
         computedChartWidth = liveData.length * (barWidthValue + spacingValue) + 12 + 24 + 32;
     }

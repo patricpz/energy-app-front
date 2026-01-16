@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   PermissionsAndroid,
   Platform,
   ScrollView,
@@ -186,47 +185,87 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
 
   // Processar notificações do ESP32 relacionadas ao WiFi
   const processarNotificacaoWiFi = useCallback((mensagem: string) => {
+    console.log("[DEBUG] processarNotificacaoWiFi chamado com mensagem:", mensagem);
+    
     try {
       // Tentar fazer parse do JSON
       const response = JSON.parse(mensagem);
       
-      console.log("📡 Notificação recebida:", response);
+      console.log("📡 Notificação recebida (parseado):", JSON.stringify(response, null, 2));
+      console.log("[DEBUG] CMD recebido:", response.cmd);
+      console.log("[DEBUG] DATA recebida:", response.data);
+      
+      registrarLog("esp32", `📡 CMD ${response.cmd}: ${JSON.stringify(response.data)}`);
       
       // BTCOMMAND_SUCCESS (cmd: 2) - WiFi conectado com sucesso
       if (response.cmd === 2) {
-        if (response.data && typeof response.data === 'string' && response.data.includes("WiFi OK")) {
-          // Extrair IP da mensagem
-          const ipMatch = response.data.match(/IP: ([\d.]+)/);
-          const ipAddress = ipMatch ? ipMatch[1] : null;
-          
+        console.log("[DEBUG] ✅ CMD 2 DETECTADO - Processando sucesso WiFi");
+        console.log("[DEBUG] Response completo:", JSON.stringify(response, null, 2));
+        
+        let ipAddress: string | null = null;
+        let dataString = "";
+        
+        // Processar data que pode ser string ou objeto
+        if (typeof response.data === 'string') {
+          dataString = response.data;
+          console.log("[DEBUG] Data é string:", dataString);
+          // Extrair IP da mensagem se contiver "IP:"
+          const ipMatch = dataString.match(/IP[:\s|]+([\d.]+)/i);
+          if (ipMatch) {
+            ipAddress = ipMatch[1];
+            console.log("[DEBUG] IP extraído:", ipAddress);
+          }
+        } else if (response.data && typeof response.data === 'object') {
+          // Se data for objeto, tentar extrair IP
+          dataString = JSON.stringify(response.data);
+          console.log("[DEBUG] Data é objeto:", dataString);
+          if ((response.data as any).ip) {
+            ipAddress = (response.data as any).ip;
+          }
+        }
+        
+        console.log("[DEBUG] Verificando se é sucesso WiFi...");
+        console.log("[DEBUG] dataString:", dataString);
+        console.log("[DEBUG] response.data:", response.data);
+        
+        // Simplificado: aceitar qualquer cmd 2 como sucesso de WiFi
+        // Se a mensagem contém "WiFi OK" ou "IP:" ou estamos aguardando, é sucesso
+        const isWiFiSuccess = 
+          (wifiStatus === "aguardando" || wifiStatus === "enviando") || // Se estamos aguardando/enviando, qualquer cmd 2 é sucesso
+          !response.data || 
+          response.data === "" || 
+          response.data === null ||
+          (typeof response.data === 'string' && (
+            dataString.toLowerCase().includes("wifi ok") ||
+            dataString.toLowerCase().includes("wifi") ||
+            dataString.toLowerCase().includes("conectado") ||
+            dataString.toLowerCase().includes("connected") ||
+            dataString.toLowerCase().includes("sucesso") ||
+            dataString.toLowerCase().includes("ip:") ||
+            dataString.toLowerCase().includes("|") // O ESP32 envia "WiFi OK | IP: ..."
+          ));
+        
+        console.log("[DEBUG] isWiFiSuccess:", isWiFiSuccess);
+        console.log("[DEBUG] wifiStatus atual:", wifiStatus);
+        
+        if (isWiFiSuccess) {
+          console.log("[DEBUG] ✅ CONFIRMADO: WiFi conectado com sucesso!");
           setWifiIP(ipAddress);
           setWifiStatus("conectado");
           
-          registrarLog("esp32", `✅ WiFi conectado com sucesso!${ipAddress ? ` IP: ${ipAddress}` : ''}`);
+          // Mensagem simples de sucesso
+          registrarLog("esp32", "✅ Conectado WiFi");
           
-          // Mostrar mensagem de sucesso na tela
-          const mensagemSucesso = ipAddress 
-            ? `WiFi conectado com sucesso!\n\nIP do ESP32: ${ipAddress}`
-            : "WiFi conectado com sucesso!";
-          
-          Alert.alert(
-            "✅ Sucesso!",
-            mensagemSucesso,
-            [
-              {
-                text: "OK",
-                style: "default"
-              }
-            ],
-            { cancelable: false }
-          );
-          
-          // Limpar campos após sucesso (opcional)
-          // setWifiSSID("");
-          // setWifiPassword("");
+          console.log("[DEBUG] Fechando modal em 500ms...");
+          // Fechar o modal imediatamente e voltar para a tela home
+          setTimeout(() => {
+            console.log("[DEBUG] Fechando modal agora...");
+            onClose();
+          }, 500);
         } else {
-          // Outro tipo de sucesso
-          registrarLog("esp32", `Sucesso: ${response.data}`);
+          // Outro tipo de sucesso (não relacionado a WiFi)
+          console.log("[DEBUG] CMD 2 mas não parece ser WiFi:", dataString || JSON.stringify(response.data));
+          registrarLog("esp32", `Sucesso (cmd 2): ${dataString || JSON.stringify(response.data)}`);
         }
       }
       // BTCOMMAND_ERROR (cmd: 1) - Erro
@@ -243,7 +282,7 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
         }
       }
       // BTCOMMAND_MESSAGE (cmd: 13) - Mensagem genérica
-      else if (response.cmd === 5) {
+      else if (response.cmd === 13) {
         registrarLog("esp32", `Mensagem: ${response.data}`);
         
         // Se receber "Credenciais OK", significa que o ESP32 recebeu as credenciais
@@ -253,15 +292,18 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
           registrarLog("sistema", "Aguardando conexão WiFi (pode levar até 10 segundos)...");
         }
       }
-      // BTCOMMAND_WIFI_LIST (cmd: 14) - Lista de redes WiFi
+      // BTCOMMAND_WIFI_LIST (cmd: 4) - Lista de redes WiFi
       else if (response.cmd === 4) {
-        registrarLog("esp32", `Redes WiFi disponíveis: ${JSON.stringify(response.data)}`);
+        console.log("[DEBUG] CMD 4 recebido - Lista de redes WiFi:", response.data);
+        registrarLog("esp32", `📶 Redes WiFi disponíveis: ${JSON.stringify(response.data)}`);
+        // Aqui você pode processar a lista de redes e exibir na UI se necessário
       }
     } catch (err) {
       // Se não for JSON válido, apenas logar como mensagem normal
       console.log("Mensagem não-JSON recebida:", mensagem);
+      registrarLog("esp32", mensagem);
     }
-  }, [registrarLog]);
+  }, [registrarLog, wifiStatus, onClose]);
 
   // Connect the device and start monitoring characteristics
   const connectDevice = useCallback(async (device: Device) => {
@@ -300,30 +342,112 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
 
       registrarLog("sistema", `Service encontrado: ${SERVICE_UUID}`);
 
-      // Habilitar notificações e monitorar características
-      deviceWithServices.monitorCharacteristicForService(
-        SERVICE_UUID,
-        MESSAGE_UUID,
-        (error, characteristic) => {
-          if (error) {
-            console.warn("Erro ao monitorar MESSAGE_UUID:", error);
-            return;
-          }
-          if (characteristic?.value != null) {
-            try {
-              const decoded = base64.decode(characteristic.value);
-              registrarLog("esp32", decoded);
-              console.log("Message update received:", decoded);
-              
-              // Processar notificação JSON
-              processarNotificacaoWiFi(decoded);
-            } catch (err) {
-              console.error("Erro ao processar notificação:", err);
-            }
-          }
-        },
-        "messagetransaction",
+      // Buscar características do serviço para verificar suporte a notificações
+      const characteristics = await targetService.characteristics();
+      const messageCharacteristic = characteristics.find(
+        (c) => c.uuid.toLowerCase() === MESSAGE_UUID.toLowerCase()
       );
+
+      if (!messageCharacteristic) {
+        registrarLog("sistema", `❌ Characteristic MESSAGE_UUID não encontrada: ${MESSAGE_UUID}`);
+        setStatus("erro");
+        return;
+      }
+
+      registrarLog("sistema", `Characteristic MESSAGE_UUID encontrada: ${MESSAGE_UUID}`);
+      console.log("[DEBUG] Characteristic properties:", {
+        uuid: messageCharacteristic.uuid,
+        isNotifiable: messageCharacteristic.isNotifiable,
+        isIndicatable: messageCharacteristic.isIndicatable,
+        isReadable: messageCharacteristic.isReadable,
+      });
+
+      // Verificar se suporta notificações
+      const supportsNotifications = messageCharacteristic.isNotifiable || messageCharacteristic.isIndicatable;
+      
+      if (!supportsNotifications) {
+        registrarLog("sistema", "⚠️ Characteristic não suporta notificações (isNotifiable=false, isIndicatable=false)");
+        registrarLog("sistema", "⚠️ Tentando monitorar mesmo assim...");
+      } else {
+        registrarLog("sistema", `✅ Characteristic suporta notificações (isNotifiable=${messageCharacteristic.isNotifiable}, isIndicatable=${messageCharacteristic.isIndicatable})`);
+      }
+
+      // Habilitar notificações e monitorar características
+      console.log("[DEBUG] Configurando monitoramento de notificações...");
+      try {
+        deviceWithServices.monitorCharacteristicForService(
+          SERVICE_UUID,
+          MESSAGE_UUID,
+          (error, characteristic) => {
+            if (error) {
+              console.error("[DEBUG] Erro no callback de monitoramento:", {
+                message: error.message,
+                reason: (error as any).reason,
+                errorCode: (error as any).errorCode,
+                attErrorCode: (error as any).attErrorCode,
+              });
+              registrarLog("sistema", `❌ Erro ao monitorar: ${error.message}`);
+              // Não retornar aqui, continuar tentando processar se houver characteristic
+              if (!characteristic) {
+                return; // Se não há characteristic, não há o que processar
+              }
+            }
+            
+            if (!characteristic) {
+              console.log("[DEBUG] Characteristic é null/undefined no callback");
+              return;
+            }
+            
+            console.log("[DEBUG] Characteristic atualizada:", {
+              uuid: characteristic.uuid,
+              valueLength: characteristic.value?.length || 0,
+              hasValue: characteristic.value != null,
+            });
+            
+            if (characteristic.value != null) {
+              try {
+                console.log("[DEBUG] ========================================");
+                console.log("[DEBUG] NOTIFICAÇÃO RECEBIDA!");
+                console.log("[DEBUG] Value (base64):", characteristic.value);
+                console.log("[DEBUG] Value length:", characteristic.value.length);
+                
+                const decoded = base64.decode(characteristic.value);
+                console.log("[DEBUG] Decoded (string):", decoded);
+                console.log("[DEBUG] Decoded length:", decoded.length);
+                console.log("[DEBUG] ========================================");
+                
+                registrarLog("esp32", decoded);
+                
+                // Processar notificação JSON
+                console.log("[DEBUG] Chamando processarNotificacaoWiFi...");
+                // Passar wifiStatus atual para o callback
+                processarNotificacaoWiFi(decoded);
+              } catch (err: any) {
+                console.error("[DEBUG] ❌ ERRO ao processar notificação:", {
+                  error: err.message,
+                  stack: err.stack,
+                  rawValue: characteristic.value,
+                });
+                registrarLog("sistema", `❌ Erro ao processar notificação: ${err.message}`);
+              }
+            } else {
+              console.log("[DEBUG] Characteristic atualizada mas value é null/undefined");
+            }
+          },
+          "messagetransaction",
+        );
+        console.log("[DEBUG] Monitor configurado com sucesso");
+        registrarLog("sistema", "✅ Monitor de notificações configurado");
+      } catch (monitorError: any) {
+        console.error("[DEBUG] Erro ao configurar monitor:", {
+          message: monitorError.message,
+          reason: (monitorError as any).reason,
+          errorCode: (monitorError as any).errorCode,
+        });
+        registrarLog("sistema", `❌ Erro ao configurar monitor: ${monitorError.message}`);
+        // Não definir status como erro aqui, pois a conexão pode estar OK
+        // apenas o monitoramento de notificações falhou
+      }
 
       registrarLog("sistema", `Conectado: ${deviceName} - Pronto para enviar`);
     } catch (error: any) {
@@ -565,7 +689,7 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
     setWifiStatus("enviando");
     setWifiIP(null);
     
-    // Criar JSON com cmd: 15 (WIFI_AUTH), ssid e password
+    // Criar JSON com cmd: 5 (WIFI_CONNECT), ssid e password
     const jsonData = JSON.stringify({
       cmd: 5,
       ssid: wifiSSID,
@@ -632,7 +756,7 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
             targetCharacteristic.uuid,
             encodedValue,
           );
-          registrarLog("app", `WiFi enviado: SSID=${wifiSSID} (cmd: 15)`);
+          registrarLog("app", `WiFi enviado: SSID=${wifiSSID} (cmd: 5)`);
           setWifiStatus("aguardando");
           registrarLog("sistema", "Aguardando confirmação de conexão WiFi (pode levar até 10 segundos)...");
           // IMPORTANTE: NÃO desconectar do BLE aqui! Manter conexão ativa para receber notificação
@@ -725,6 +849,20 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
           <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
             Faça o pareamento inicial via Bluetooth Low Energy, acompanhe o status e envie comandos.
           </Text>
+
+          <View
+            style={[
+              styles.warningBox,
+              {
+                backgroundColor: theme.colors.warning + "20",
+                borderColor: theme.colors.warning,
+              },
+            ]}
+          >
+            <Text style={[styles.warningText, { color: theme.colors.warning }]}>
+              ⚠️ ESTA FUNCIONALIDADE ESTÁ EM FASE DE TESTE
+            </Text>
+          </View>
 
           <View style={styles.statusRow}>
             <Text style={[styles.statusLabel, { color: theme.colors.textSecondary }]}>Status:</Text>
@@ -856,6 +994,22 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
               Configurar Wi-Fi no ESP32
             </Text>
+
+            <View
+              style={[
+                styles.infoBox,
+                {
+                  backgroundColor: theme.colors.primary + "15",
+                  borderColor: theme.colors.primary,
+                },
+              ]}
+            >
+              <Text style={[styles.infoText, { color: theme.colors.text }]}>
+                📋 <Text style={{ fontWeight: "600" }}>Instruções:</Text>
+                {"\n"}
+                Quando você enviar as credenciais WiFi, verifique o console do ESP32 para confirmar a conexão. O console mostrará o status da conexão WiFi e o IP atribuído.
+              </Text>
+            </View>
 
             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>SSID (Nome da rede)</Text>
             <TextInput
@@ -1118,6 +1272,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     textAlign: "center",
+  },
+  warningBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  warningText: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  infoBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  infoText: {
+    fontSize: 13,
+    lineHeight: 20,
   },
 });
 
