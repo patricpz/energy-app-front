@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import EnergyMeter from "../components/EnergyMeter";
 import AppCard from "../components/GlobalCard";
 import GraphicMeter from "../components/GraphicMeter";
@@ -8,6 +8,7 @@ import PulseWebSocketLed from "../components/PulseWebSocketLed";
 import { useTheme } from "../context/ThemeContext";
 import SafeScreen from "../SafeScreen";
 import { getEnergyMonths } from "../services/energyReport";
+import { homeStyles as styles } from "./styles/homeStyle";
 
 export default function Home() {
     const { theme } = useTheme();
@@ -29,23 +30,9 @@ export default function Home() {
                 endMonth: currentMonth,
             });
             
-            console.log('📊 Relatório de Meses (energyMonths) - Array completo:', JSON.stringify(monthsData, null, 2));
-            console.log('📊 Tipo de relatório: Relatório de consumo mensal do ano');
             
             if (monthsData && monthsData.length > 0) {
                 const monthData = monthsData[0];
-                
-                // Console detalhado do mês atual
-                console.log('═══════════════════════════════════════');
-                console.log('📅 MÊS ATUAL - Dados completos:');
-                console.log('═══════════════════════════════════════');
-                console.log(JSON.stringify(monthData, null, 2));
-                console.log('───────────────────────────────────────');
-                console.log('📋 Campos individuais do mês atual:');
-                Object.keys(monthData).forEach(key => {
-                    console.log(`  • ${key}:`, (monthData as any)[key]);
-                });
-                console.log('═══════════════════════════════════════');
                 
                 // Buscar account (custo)
                 const account = (monthData as any).account;
@@ -92,12 +79,8 @@ export default function Home() {
                         <View style={styles.pulseRow}>
                             <PulseWebSocketLed
                                 onPulse={(rawMessage) => {
-                                    // Ativar animação do LED
                                     setPulseActive(true);
-                                    setTimeout(() => setPulseActive(false), 150);
-                                    
-                                    // Atualizar dados do mês a cada pulso
-                                    console.log('💡 Pulso detectado! Atualizando dados...');
+                                    setTimeout(() => setPulseActive(false), 150); 
                                     fetchMonthData();
                                 }}
                             />
@@ -132,35 +115,4 @@ export default function Home() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    content: {
-        flex: 1,
-        paddingHorizontal: 20,
-        paddingTop: 40,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: "600",
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 15,
-    },
-    sectionGraphic: {
-        marginTop: 20,
-        padding: 0,
-    },
-    pulseRow: {
-        flexDirection: "row",
-        justifyContent: "flex-end",
-        paddingRight: 8,
-    },
-    cardRow: {
-        marginTop: 20,
-        flexDirection: "row",
-        justifyContent: "space-between",
-    }
-});
+

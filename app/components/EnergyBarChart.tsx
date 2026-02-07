@@ -47,39 +47,27 @@ export default function EnergyBarChart({
     chartWidth,
     onBarPress,
 }: EnergyBarChartProps) {
-    // Calcular maxValue - garantir que a barra seja sempre visível
     const maxValue = (() => {
         if (data.length === 0) return 0.1;
         
-        // Para o modo "dia", garantir que valores baixos ou zero sejam tratados
         let maxVal = Math.max(...data.map(item => {
             const val = typeof item.value === 'number' && !isNaN(item.value) ? item.value : 0;
-            // Se o valor for 0 ou muito baixo, usar um mínimo para garantir renderização
             return val > 0 ? val : 0.001;
         }), 0);
         
-        // Para o modo "dia" com apenas uma barra, garantir altura mínima visível
         if (periodFilter === "dia" && data.length === 1) {
-            // Se o valor for muito baixo ou zero, usar um maxValue fixo para garantir que a barra apareça
             if (maxVal <= 0.001) {
-                return 0.01; // maxValue fixo para garantir que a barra tenha pelo menos 10% da altura
+                return 0.01; 
             }
-            // Se o valor for muito baixo, usar um maxValue mínimo maior para a barra ser visível
             if (maxVal > 0 && maxVal < 0.05) {
                 return Math.max(maxVal * 4, 0.05); // Garantir que a barra tenha pelo menos 1/4 da altura
             }
-            // Se o valor for maior, usar um padding de 30%
             return maxVal > 0 ? Math.max(maxVal * 1.3, 0.05) : 0.1;
         }
         
-        // Para outros modos, usar cálculo normal
         return maxVal > 0 ? Math.max(maxVal * 1.1, 0.01) : 0.1;
     })();
     
-    // Debug: log do maxValue e valores
-    console.log('[BarChart] periodFilter:', periodFilter, 'data.length:', data.length, 'maxValue:', maxValue, 'data:', data);
-
-    // Espaçamentos baseados no período
     const initialSpacing = periodFilter === "mes" ? 8 : (periodFilter === "dia" ? 8 : 12);
     const endSpacing = periodFilter === "mes" ? 16 : (periodFilter === "dia" ? 16 : 24);
 
@@ -94,10 +82,8 @@ export default function EnergyBarChart({
             <BarChart
                 data={data.map((item, index) => {
                     const isSelected = selectedIndex === index;
-                    // Garantir que o valor seja numérico e válido
                     let value = typeof item.value === 'number' && !isNaN(item.value) ? item.value : 0;
                     
-                    // Para o modo "dia", garantir altura mínima visível mesmo se o valor for 0 ou muito baixo
                     if (periodFilter === "dia" && data.length === 1) {
                         // Se o valor for 0 ou muito baixo, usar um valor mínimo para garantir que a barra apareça
                         if (value === 0 || value < 0.001) {
@@ -191,7 +177,6 @@ export default function EnergyBarChart({
                 xAxisLabelsHeight={periodFilter === "mes" ? 30 : 20}
                 onPress={(item: any, index: number) => {
                     // Garantir que o índice seja passado corretamente
-                    console.log('BarChart onPress - item:', item, 'index:', index);
                     onBarPress(index);
                 }}
                 showGradient={false}

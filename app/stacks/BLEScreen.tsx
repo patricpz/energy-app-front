@@ -155,12 +155,7 @@ export default function BLEScreen() {
       if (!scannedDevice) return;
 
       // Log do dispositivo encontrado
-      console.log("Dispositivo encontrado:", {
-        id: scannedDevice.id,
-        name: scannedDevice.name || "(sem nome)",
-        rssi: scannedDevice.rssi,
-        isConnectable: scannedDevice.isConnectable,
-      });
+
 
       // Adicionar à lista de dispositivos (evitar duplicatas)
       setDispositivos((prev) => {
@@ -241,7 +236,6 @@ export default function BLEScreen() {
           if (characteristic?.value != null) {
             const decoded = base64.decode(characteristic.value);
             registrarLog("esp32", decoded);
-            console.log("Message update received:", decoded);
           }
         },
         "messagetransaction",
@@ -329,12 +323,6 @@ export default function BLEScreen() {
       }
 
       const characteristics = await targetService.characteristics();
-
-      // Listar todas as características disponíveis para debug
-      console.log("Características disponíveis:");
-      characteristics.forEach((char) => {
-        console.log(`- UUID: ${char.uuid}, WritableWithResponse: ${char.isWritableWithResponse}, WritableWithoutResponse: ${char.isWritableWithoutResponse}`);
-      });
 
       // Tentar encontrar a característica MESSAGE_UUID primeiro
       let targetCharacteristic = characteristics.find(
@@ -482,7 +470,6 @@ export default function BLEScreen() {
 
     const encodedValue = base64.encode(jsonData);
 
-    console.log("Enviando JSON:", jsonData, "Encoded:", encodedValue);
 
     try {
       // Primeiro, tentar descobrir as características para verificar permissões
@@ -498,11 +485,7 @@ export default function BLEScreen() {
 
       const characteristics = await targetService.characteristics();
 
-      // Listar todas as características disponíveis para debug
-      console.log("Características disponíveis:");
-      characteristics.forEach((char) => {
-        console.log(`- UUID: ${char.uuid}, WritableWithResponse: ${char.isWritableWithResponse}, WritableWithoutResponse: ${char.isWritableWithoutResponse}`);
-      });
+
 
       // Tentar encontrar a característica BOX_UUID primeiro
       let targetCharacteristic = characteristics.find(

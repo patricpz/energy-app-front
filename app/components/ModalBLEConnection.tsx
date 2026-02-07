@@ -146,12 +146,7 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
       if (!scannedDevice) return;
 
       // Log do dispositivo encontrado
-      console.log("Dispositivo encontrado:", {
-        id: scannedDevice.id,
-        name: scannedDevice.name || "(sem nome)",
-        rssi: scannedDevice.rssi,
-        isConnectable: scannedDevice.isConnectable,
-      });
+
 
       // Adicionar à lista de dispositivos (evitar duplicatas)
       setDispositivos((prev) => {
@@ -185,48 +180,32 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
 
   // Processar notificações do ESP32 relacionadas ao WiFi
   const processarNotificacaoWiFi = useCallback((mensagem: string) => {
-    console.log("[DEBUG] processarNotificacaoWiFi chamado com mensagem:", mensagem);
     
     try {
       // Tentar fazer parse do JSON
       const response = JSON.parse(mensagem);
-      
-      console.log("📡 Notificação recebida (parseado):", JSON.stringify(response, null, 2));
-      console.log("[DEBUG] CMD recebido:", response.cmd);
-      console.log("[DEBUG] DATA recebida:", response.data);
-      
       registrarLog("esp32", `📡 CMD ${response.cmd}: ${JSON.stringify(response.data)}`);
       
       // BTCOMMAND_SUCCESS (cmd: 2) - WiFi conectado com sucesso
-      if (response.cmd === 2) {
-        console.log("[DEBUG] ✅ CMD 2 DETECTADO - Processando sucesso WiFi");
-        console.log("[DEBUG] Response completo:", JSON.stringify(response, null, 2));
-        
+      if (response.cmd === 2) {        
         let ipAddress: string | null = null;
         let dataString = "";
         
         // Processar data que pode ser string ou objeto
         if (typeof response.data === 'string') {
           dataString = response.data;
-          console.log("[DEBUG] Data é string:", dataString);
           // Extrair IP da mensagem se contiver "IP:"
           const ipMatch = dataString.match(/IP[:\s|]+([\d.]+)/i);
           if (ipMatch) {
             ipAddress = ipMatch[1];
-            console.log("[DEBUG] IP extraído:", ipAddress);
           }
         } else if (response.data && typeof response.data === 'object') {
           // Se data for objeto, tentar extrair IP
           dataString = JSON.stringify(response.data);
-          console.log("[DEBUG] Data é objeto:", dataString);
           if ((response.data as any).ip) {
             ipAddress = (response.data as any).ip;
           }
         }
-        
-        console.log("[DEBUG] Verificando se é sucesso WiFi...");
-        console.log("[DEBUG] dataString:", dataString);
-        console.log("[DEBUG] response.data:", response.data);
         
         // Simplificado: aceitar qualquer cmd 2 como sucesso de WiFi
         // Se a mensagem contém "WiFi OK" ou "IP:" ou estamos aguardando, é sucesso
@@ -245,26 +224,19 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
             dataString.toLowerCase().includes("|") // O ESP32 envia "WiFi OK | IP: ..."
           ));
         
-        console.log("[DEBUG] isWiFiSuccess:", isWiFiSuccess);
-        console.log("[DEBUG] wifiStatus atual:", wifiStatus);
-        
         if (isWiFiSuccess) {
-          console.log("[DEBUG] ✅ CONFIRMADO: WiFi conectado com sucesso!");
           setWifiIP(ipAddress);
           setWifiStatus("conectado");
           
           // Mensagem simples de sucesso
           registrarLog("esp32", "✅ Conectado WiFi");
           
-          console.log("[DEBUG] Fechando modal em 500ms...");
           // Fechar o modal imediatamente e voltar para a tela home
           setTimeout(() => {
-            console.log("[DEBUG] Fechando modal agora...");
             onClose();
           }, 500);
         } else {
           // Outro tipo de sucesso (não relacionado a WiFi)
-          console.log("[DEBUG] CMD 2 mas não parece ser WiFi:", dataString || JSON.stringify(response.data));
           registrarLog("esp32", `Sucesso (cmd 2): ${dataString || JSON.stringify(response.data)}`);
         }
       }
@@ -294,13 +266,11 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
       }
       // BTCOMMAND_WIFI_LIST (cmd: 4) - Lista de redes WiFi
       else if (response.cmd === 4) {
-        console.log("[DEBUG] CMD 4 recebido - Lista de redes WiFi:", response.data);
         registrarLog("esp32", `📶 Redes WiFi disponíveis: ${JSON.stringify(response.data)}`);
         // Aqui você pode processar a lista de redes e exibir na UI se necessário
       }
     } catch (err) {
       // Se não for JSON válido, apenas logar como mensagem normal
-      console.log("Mensagem não-JSON recebida:", mensagem);
       registrarLog("esp32", mensagem);
     }
   }, [registrarLog, wifiStatus, onClose]);
@@ -355,12 +325,6 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
       }
 
       registrarLog("sistema", `Characteristic MESSAGE_UUID encontrada: ${MESSAGE_UUID}`);
-      console.log("[DEBUG] Characteristic properties:", {
-        uuid: messageCharacteristic.uuid,
-        isNotifiable: messageCharacteristic.isNotifiable,
-        isIndicatable: messageCharacteristic.isIndicatable,
-        isReadable: messageCharacteristic.isReadable,
-      });
 
       // Verificar se suporta notificações
       const supportsNotifications = messageCharacteristic.isNotifiable || messageCharacteristic.isIndicatable;
@@ -373,7 +337,6 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
       }
 
       // Habilitar notificações e monitorar características
-      console.log("[DEBUG] Configurando monitoramento de notificações...");
       try {
         deviceWithServices.monitorCharacteristicForService(
           SERVICE_UUID,
@@ -394,49 +357,26 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
             }
             
             if (!characteristic) {
-              console.log("[DEBUG] Characteristic é null/undefined no callback");
               return;
             }
             
-            console.log("[DEBUG] Characteristic atualizada:", {
-              uuid: characteristic.uuid,
-              valueLength: characteristic.value?.length || 0,
-              hasValue: characteristic.value != null,
-            });
+
             
             if (characteristic.value != null) {
               try {
-                console.log("[DEBUG] ========================================");
-                console.log("[DEBUG] NOTIFICAÇÃO RECEBIDA!");
-                console.log("[DEBUG] Value (base64):", characteristic.value);
-                console.log("[DEBUG] Value length:", characteristic.value.length);
                 
                 const decoded = base64.decode(characteristic.value);
-                console.log("[DEBUG] Decoded (string):", decoded);
-                console.log("[DEBUG] Decoded length:", decoded.length);
-                console.log("[DEBUG] ========================================");
                 
                 registrarLog("esp32", decoded);
                 
-                // Processar notificação JSON
-                console.log("[DEBUG] Chamando processarNotificacaoWiFi...");
-                // Passar wifiStatus atual para o callback
                 processarNotificacaoWiFi(decoded);
               } catch (err: any) {
-                console.error("[DEBUG] ❌ ERRO ao processar notificação:", {
-                  error: err.message,
-                  stack: err.stack,
-                  rawValue: characteristic.value,
-                });
                 registrarLog("sistema", `❌ Erro ao processar notificação: ${err.message}`);
               }
-            } else {
-              console.log("[DEBUG] Characteristic atualizada mas value é null/undefined");
             }
           },
           "messagetransaction",
         );
-        console.log("[DEBUG] Monitor configurado com sucesso");
         registrarLog("sistema", "✅ Monitor de notificações configurado");
       } catch (monitorError: any) {
         console.error("[DEBUG] Erro ao configurar monitor:", {
@@ -542,18 +482,10 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
 
       const characteristics = await targetService.characteristics();
 
-      // Listar todas as características disponíveis para debug
-      console.log("Características disponíveis:");
-      characteristics.forEach((char) => {
-        console.log(`- UUID: ${char.uuid}, WritableWithResponse: ${char.isWritableWithResponse}, WritableWithoutResponse: ${char.isWritableWithoutResponse}`);
-      });
-
-      // Tentar encontrar a característica MESSAGE_UUID primeiro
       let targetCharacteristic = characteristics.find(
         (c) => c.uuid.toLowerCase() === MESSAGE_UUID.toLowerCase()
       );
 
-      // Se não encontrar MESSAGE_UUID, tentar usar BOX_UUID como alternativa
       if (!targetCharacteristic) {
         registrarLog("sistema", `Characteristic ${MESSAGE_UUID} não encontrada. Tentando usar ${BOX_UUID}...`);
         targetCharacteristic = characteristics.find(
@@ -561,7 +493,6 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
         );
       }
 
-      // Se ainda não encontrou, usar a primeira característica que suporta escrita
       if (!targetCharacteristic) {
         registrarLog("sistema", "Nenhuma das características esperadas encontrada. Procurando qualquer característica que suporte escrita...");
         targetCharacteristic = characteristics.find(
@@ -698,7 +629,6 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
 
     const encodedValue = base64.encode(jsonData);
 
-    console.log("Enviando JSON:", jsonData, "Encoded:", encodedValue);
 
     try {
       // Primeiro, tentar descobrir as características para verificar permissões
@@ -713,12 +643,6 @@ export default function ModalBLEConnection({ visible, onClose }: ModalBLEConnect
       }
 
       const characteristics = await targetService.characteristics();
-
-      // Listar todas as características disponíveis para debug
-      console.log("Características disponíveis:");
-      characteristics.forEach((char) => {
-        console.log(`- UUID: ${char.uuid}, WritableWithResponse: ${char.isWritableWithResponse}, WritableWithoutResponse: ${char.isWritableWithoutResponse}`);
-      });
 
       // Tentar encontrar a característica BOX_UUID primeiro
       let targetCharacteristic = characteristics.find(

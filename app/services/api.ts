@@ -33,7 +33,6 @@ api.interceptors.request.use(
           const user = JSON.parse(userData);
           if (user.token) {
             config.headers.Authorization = `Bearer ${user.token}`;
-            console.log('🔑 Token adicionado à requisição');
           } else {
             console.warn('⚠️ Usuário encontrado mas sem token');
           }
@@ -41,19 +40,10 @@ api.interceptors.request.use(
           console.warn('⚠️ Nenhum usuário encontrado no storage');
         }
       } else {
-        console.log('🔓 Rota de autenticação - token não será enviado');
       }
     } catch (error) {
       console.warn('Error getting token from storage:', error);
     }
-    
-    // Log da requisição para debug
-    console.log('🌐 API Request:', {
-      method: config.method?.toUpperCase(),
-      url: `${config.baseURL}${config.url}`,
-      hasAuth: !!config.headers.Authorization,
-      data: config.data ? (config.url?.includes('password') ? { ...config.data, password: '***' } : config.data) : undefined,
-    });
     
     return config;
   },
@@ -66,11 +56,6 @@ api.interceptors.request.use(
 // Interceptor para tratar erros de autenticação
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ API Response:', {
-      status: response.status,
-      url: response.config.url,
-      data: response.data,
-    });
     return response;
   },
   async (error) => {

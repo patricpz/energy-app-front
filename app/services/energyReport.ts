@@ -64,11 +64,8 @@ export async function getEnergyYears(params?: {
   try {
     const userId = await getUserId();
     const response = await api.get(`/users/${userId}/energyYears`, { params });
-    console.log('Fetched energy years:', response.data);
-    console.log('Energy years array length:', response.data?.length || 0);
     if (Array.isArray(response.data)) {
       response.data.forEach((item: any, index: number) => {
-        console.log(`Energy year [${index}]:`, item);
       });
     }
     return response.data;
@@ -101,13 +98,10 @@ export async function getEnergyMonths(params?: {
     
     // Rota hierárquica: /users/:userId/energyYears/:year/energyMonths
     const response = await api.get(`/users/${userId}/energyYears/${year}/energyMonths`);
-    console.log('Fetched energy months (full response):', JSON.stringify(response.data, null, 2));
     
     // A API retorna { data: { average, data: [...], total } }
     // Precisamos acessar response.data.data para obter o array de meses
     const responseData = response.data?.data || response.data;
-    console.log('Energy months data array:', JSON.stringify(responseData, null, 2));
-    console.log('Energy months array length:', Array.isArray(responseData) ? responseData.length : 0);
     
     let data = Array.isArray(responseData) ? responseData : [responseData];
     
@@ -122,7 +116,6 @@ export async function getEnergyMonths(params?: {
     
     if (Array.isArray(data)) {
       data.forEach((item: any, index: number) => {
-        console.log(`Energy month [${index}]:`, item);
       });
     }
     
@@ -168,17 +161,11 @@ export async function getEnergyDays(params?: {
         endDate: params?.endDate,
       }
     });
-    console.log('Fetched energy days (full response):', JSON.stringify(response.data, null, 2));
     
-    // A API retorna { data: { average, data: [...], total } }
-    // Precisamos acessar response.data.data para obter o array de dias
     const responseData = response.data?.data || response.data;
-    console.log('Energy days data array:', JSON.stringify(responseData, null, 2));
-    console.log('Energy days array length:', Array.isArray(responseData) ? responseData.length : 0);
     
     if (Array.isArray(responseData)) {
       responseData.forEach((item: any, index: number) => {
-        console.log(`Energy day [${index}]:`, item);
       });
     }
     
@@ -195,63 +182,11 @@ export async function getEnergyDays(params?: {
   }
 }
 
-/**
- * Relatório de horas (consumo em tempo real)
- * GET api/users/:userId/energyYears/:yearId/energyMonths/:monthId/energyDays/:dayId/energyHours
- */
-// export async function getEnergyHours(params?: {
-//   year?: number;
-//   month?: number;
-//   day?: number;
-//   yearId?: number;
-//   monthId?: number;
-//   dayId?: number;
-//   date?: string;
-//   startHour?: number;
-//   endHour?: number;
-// }): Promise<EnergyHourData[]> {
-//   try {
-//     const userId = await getUserId();
-//     const now = new Date();
-//     const year = params?.year || params?.yearId || now.getFullYear();
-//     const month = params?.month || params?.monthId || (now.getMonth() + 1);
-//     const day = params?.day || params?.dayId || now.getDate();
-    
-//     // Rota hierárquica: /users/:userId/energyYears/:yearId/energyMonths/:monthId/energyDays/:dayId/energyHours
-//     const response = await api.get(`/users/${userId}/energyYears/${year}/energyMonths/${month}/energyDays/${day}/energyHours`, {
-//       params: {
-//         startHour: params?.startHour,
-//         endHour: params?.endHour,
-//       }
-//     });
-//     console.log('Fetched energy hours:', response.data);
-//     console.log('Energy hours array length:', response.data?.length || 0);
-//     if (Array.isArray(response.data)) {
-//       response.data.forEach((item: any, index: number) => {
-//         console.log(`Energy hour [${index}]:`, item);
-//       });
-//     }
-//     return response.data;
-//   } catch (error: any) {
-//     console.error('Error fetching energy hours:', error);
-//     if (error.response) {
-//       throw new Error(error.response.data?.message || 'Erro ao buscar relatório de horas');
-//     } else if (error.request) {
-//       throw new Error('Erro de conexão. Verifique sua internet.');
-//     } else {
-//       throw new Error(error.message || 'Erro ao buscar relatório de horas');
-//     }
-//   }
-// }
 
-/**
- * Exportar todas as funções como um objeto
- */
 export const EnergyReportApi = {
   getEnergyYears,
   getEnergyMonths,
   getEnergyDays,
-  // getEnergyHours,
 };
 
 export default EnergyReportApi;

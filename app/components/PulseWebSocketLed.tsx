@@ -21,10 +21,6 @@ const PulseWebSocketLed: React.FC<PulseWebSocketLedProps> = ({
         const ws = new WebSocket(url);
         wsRef.current = ws;
 
-        ws.onopen = () => {
-            console.log('teste');
-        };
-
         ws.onmessage = (event) => {
             const data = String(event.data ?? "");
             

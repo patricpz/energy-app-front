@@ -4,24 +4,30 @@ import {
 } from 'phosphor-react-native';
 
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Header from '../components/Header';
 import ModalAddDevice from '../components/ModalAddDevice';
 import { useTheme } from '../context/ThemeContext';
 import SafeScreen from '../SafeScreen';
 import { deleteDevice, DomesticEquipment, getDevices } from '../services/devices';
+import { deviceStyles as styles } from './styles/deviceStyle';
 
 type FilterType = 'todos' | 'ligados' | 'desligados';
 
-
-// Converter dados da API para o formato da interface
+interface Device {
+  id: string | number;
+  name: string;
+  consumption: number;
+  online: boolean;
+  active: boolean;
+}
 function mapApiDeviceToDevice(apiDevice: DomesticEquipment): Device {
   return {
     id: apiDevice.id || '',
     name: apiDevice.name,
     consumption: apiDevice.consumeKwh,
-    online: true, // Por padrão, assumimos que está online (pode ser ajustado quando houver integração com status real)
-    active: true, // Por padrão, assumimos que está ativo (pode ser ajustado quando houver integração com status real)
+    online: true,
+    active: true,
   };
 }
 
@@ -33,7 +39,6 @@ export default function Devices() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Carregar dispositivos da API
   const loadDevices = async () => {
     try {
       setLoading(true);
@@ -51,19 +56,16 @@ export default function Devices() {
     }
   };
 
-  // Carregar dispositivos ao montar o componente
   useEffect(() => {
     loadDevices();
   }, []);
 
-  // Calcular estatísticas
   const activeDevices = devices.filter(d => d.active).length;
   const totalDevices = devices.length;
   const currentConsumption = devices
     .filter(d => d.active)
     .reduce((sum, d) => sum + d.consumption, 0);
 
-  // Filtrar dispositivos
   const filteredDevices = devices.filter(device => {
     if (filter === 'ligados') return device.active;
     if (filter === 'desligados') return !device.active;
@@ -71,7 +73,6 @@ export default function Devices() {
   });
 
   async function handleSaveDevice() {
-    // Recarregar lista após salvar
     await loadDevices();
   }
 
@@ -94,7 +95,6 @@ export default function Devices() {
               setDeletingId(idString);
               await deleteDevice(idString);
               Alert.alert('Sucesso', 'Dispositivo excluído com sucesso!');
-              // Recarregar lista após deletar
               await loadDevices();
             } catch (error: any) {
               console.error('Erro ao deletar dispositivo:', error);
@@ -119,7 +119,6 @@ export default function Devices() {
         <Header />
 
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* HEADER + BOTÃO */}
           <View style={styles(theme).headerRow}>
             <View style={styles(theme).titleContainer}>
               <Text style={styles(theme).title}>Dispositivos</Text>
@@ -129,7 +128,6 @@ export default function Devices() {
             </TouchableOpacity>
           </View>
 
-          {/* CARDS DE RESUMO */}
           <View style={styles(theme).summaryCards}>
             <View style={[styles(theme).summaryCard, { backgroundColor: colors.card, marginRight: 6 }]}>
               <Text style={[styles(theme).summaryValue, { color: colors.primary }]}>
@@ -157,7 +155,6 @@ export default function Devices() {
             </View>
           </View>
 
-          {/* FILTROS */}
           <View style={styles(theme).filtersContainer}>
             <TouchableOpacity
               style={[
@@ -212,7 +209,6 @@ export default function Devices() {
             </TouchableOpacity>
           </View>
 
-          {/* LISTA DE DISPOSITIVOS */}
           <View style={styles(theme).devicesList}>
             {loading ? (
               <View style={styles(theme).loadingContainer}>
@@ -232,9 +228,7 @@ export default function Devices() {
               filteredDevices.map((device) => (
                 <View key={device.id} style={[styles(theme).deviceCard, { backgroundColor: colors.card }]}>
                   <View style={styles(theme).deviceInfoRow}>
-                    {/* Ícone */}
 
-                    {/* Informações */}
                     <View style={styles(theme).deviceInfo}>
                       <Text style={[styles(theme).deviceName, { color: colors.text }]}>
                         {device.name}
@@ -265,7 +259,6 @@ export default function Devices() {
                       </View>
                     </View>
 
-                    {/* Botão de deletar */}
                     <TouchableOpacity
                       onPress={() => handleDeleteDevice(device.id)}
                       style={styles(theme).deleteButton}
@@ -284,7 +277,6 @@ export default function Devices() {
           </View>
         </ScrollView>
 
-        {/* MODAL */}
         <ModalAddDevice
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
@@ -296,182 +288,4 @@ export default function Devices() {
   );
 }
 
-interface Device {
-  id: string | number;
-  name: string;
-  consumption: number;
-  online: boolean;
-  active: boolean;
-}
 
-const styles = (theme: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-
-  titleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: theme.colors.text,
-  },
-
-  summaryCards: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-
-  summaryCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-
-  summaryValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-
-  summaryLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-
-  filtersContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-
-  filterButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  filterButtonActive: {
-    // Estilo adicional se necessário
-  },
-
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  devicesList: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-
-  deviceCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-
-  deviceInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  deviceIconContainer: {
-    marginRight: 14,
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  deviceInfo: {
-    flex: 1,
-  },
-
-  deviceName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-
-  consumptionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-
-  consumptionLabel: {
-    fontSize: 13,
-    fontWeight: '400',
-  },
-
-  consumptionValue: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-
-  statusText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-
-  deleteButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
-
-  loadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  loadingText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  emptyText: {
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-});

@@ -29,13 +29,6 @@ async function getUserId(): Promise<string> {
   try {
     const user = await getCurrentUser();
     
-    console.log('🔍 getUserId - User from storage:', {
-      hasUser: !!user,
-      userId: user?.id,
-      userEmail: user?.email,
-      hasToken: !!user?.token,
-      fullUser: user ? { ...user, token: user.token ? '***' : undefined } : null,
-    });
     
     if (!user) {
       console.error('❌ getUserId - Nenhum usuário encontrado no storage');
@@ -47,7 +40,6 @@ async function getUserId(): Promise<string> {
       throw new Error('Dados do usuário incompletos. Faça login novamente.');
     }
     
-    console.log('✅ getUserId - ID encontrado:', user.id);
     return user.id;
   } catch (error: any) {
     console.error('❌ getUserId - Erro ao obter userId:', error);
