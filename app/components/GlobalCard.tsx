@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LucideIcon } from 'lucide-react-native';
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../context/ThemeContext";
@@ -7,7 +8,7 @@ interface GlobalCardProps {
     title: string;
     value: string | number;
     subtitle?: string;
-    icon?: keyof typeof Ionicons.glyphMap;
+    icon?: keyof typeof Ionicons.glyphMap | LucideIcon ;
     color?: string;
     variant?: "default" | "large";
 }
@@ -48,11 +49,15 @@ export default function GlobalCard({
                 </Text>
 
                 {icon && (
-                    <Ionicons
-                        name={icon}
-                        size={20}
-                        color={iconAndValueColor}
-                    />
+                    typeof icon === 'string' ? (
+                        <Ionicons
+                            name={icon}
+                            size={20}
+                            color={iconAndValueColor}
+                        />
+                    ) : (
+                        React.createElement(icon, { size: 20, color: iconAndValueColor })
+                    )
                 )}
             </View>
 
