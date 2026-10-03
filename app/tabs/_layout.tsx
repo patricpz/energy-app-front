@@ -35,9 +35,9 @@ export default function TabsLayout() {
           )
         }}
       />
-            <Tabs.Screen name="analisty"
+      <Tabs.Screen name="analisty"
         options={{
-          tabBarLabel: "Testee",
+          tabBarLabel: "Testes",
           tabBarIcon: ({ color, size }) => (
             <DevicesIcon color={color} size={size} />
           )

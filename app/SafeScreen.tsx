@@ -1,20 +1,11 @@
-import { SafeAreaView, StyleSheet } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SafeScreen({ children, style }: any) {
-  const insets = useSafeAreaInsets();
-
   return (
     <SafeAreaView
-      style={[
-        styles.container,
-        {
-          paddingTop: insets.top,
-          paddingLeft: insets.left,
-          paddingRight: insets.right,
-        },
-        style,
-      ]}
+      style={[styles.container, style]}
+      edges={["top", "left", "right"]}
     >
       {children}
     </SafeAreaView>
