@@ -2,8 +2,8 @@ import { useFonts } from "expo-font";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
-import Login from "./stacks/auth/login";
-import { useAuthContext } from "./context/AuthContext";
+import Login from "./(auth)/login";
+import { useAuthContext } from "@/modules/auth/context/AuthContext";
 
 export default function Index() {
   const [loaded] = useFonts({
@@ -18,7 +18,7 @@ export default function Index() {
 
     // Se o usuário estiver logado, redireciona para home
     if (user) {
-      router.replace("/tabs/home");
+      router.replace("/home");
     }
   }, [loaded, loading, user, router]);
 
