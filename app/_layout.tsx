@@ -1,8 +1,8 @@
 import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AuthProvider } from "./context/AuthContext";
-import { PulseCounterProvider } from "./context/PulseCounterContext";
-import { ThemeProvider } from "./context/ThemeContext";
+import { AuthProvider } from "@/modules/auth/context/AuthContext";
+import { PulseCounterProvider } from "@/modules/energy/context/PulseCounterContext";
+import { ThemeProvider } from "@/shared/theme/ThemeContext";
 
 export default function RootLayout() {
     return (
@@ -10,13 +10,7 @@ export default function RootLayout() {
             <ThemeProvider>
                 <AuthProvider>
                     <PulseCounterProvider>
-                        <Stack screenOptions={{ headerShown: false }}>
-                            <Stack.Screen name="index" options={{ headerShown: false }} />
-                            <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-                            <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-                            <Stack.Screen name="tabs/_layout" options={{ headerShown: false }} />
-                            <Stack.Screen name="stacks/BLEScreen" options={{ headerShown: false }} />
-                        </Stack>
+                        <Stack screenOptions={{ headerShown: false }} />
                     </PulseCounterProvider>
                 </AuthProvider>
             </ThemeProvider>
