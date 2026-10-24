@@ -1,0 +1,60 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useTheme } from "../theme/ThemeContext";
+
+const Header = () => {
+  const { theme } = useTheme();
+  const router = useRouter();
+  const navigateProfile = () => {
+    router.replace("/profile")
+  }
+  
+  return (
+    <View style={[styles.container, { backgroundColor: theme.colors.header, borderBottomColor: theme.colors.border }]}>
+      <View style={styles.logoContainer}>
+        <View style={[styles.iconBackground, { backgroundColor: theme.colors.primary }]}>
+          <Ionicons name="flash" size={18} color="#FFD700" />
+        </View>
+        <Text style={[styles.title, { color: theme.colors.text }]}>EnergyPro</Text>
+      </View>
+
+      <TouchableOpacity style={styles.profileButton} onPress={navigateProfile}>
+        <Ionicons name="person-circle-outline" size={28} color={theme.colors.textSecondary} />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  logoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  iconBackground: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  profileButton: {
+    padding: 4,
+  },
+});
+
+export default Header;
